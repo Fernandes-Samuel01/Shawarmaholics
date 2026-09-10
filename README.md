@@ -19,6 +19,12 @@ psql $env:DATABASE_URL -f database/schema.sql
 psql $env:DATABASE_URL -f database/seed.sql
 ```
 
+For an existing database, apply the payment-status migration before starting the API:
+
+```powershell
+psql $env:DATABASE_URL -f database/migrations/002_payment_status.sql
+```
+
 6. Start both applications:
 
 ```powershell
