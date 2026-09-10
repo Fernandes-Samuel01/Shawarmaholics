@@ -23,6 +23,7 @@ For an existing database, apply the payment-status migration before starting the
 
 ```powershell
 psql $env:DATABASE_URL -f database/migrations/002_payment_status.sql
+psql $env:DATABASE_URL -f database/migrations/003_order_number_sequence.sql
 ```
 
 6. Start both applications:
