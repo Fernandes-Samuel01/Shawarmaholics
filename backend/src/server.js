@@ -16,6 +16,7 @@ app.use(express.json());
 const query=(text,params=[])=>db.query(text,params);
 require('./kitchen-routes')(app,query,io);
 require('./kitchen-performance')(app,query);
+require('./routes/staff-attendance-routes')(app,{query,db});
 
 const auth=(roles=[])=> (req,res,next)=>{
   try{
