@@ -36,18 +36,25 @@ function queueSnapshot(orders,maxActive=2){
   return {active:eligible.slice(0,maxActive),upNext:eligible.slice(maxActive,maxActive+1)[0]||null,waiting:eligible.slice(maxActive+1)};
 }
 async function activateQueueOrders(queue){
-  let changed=false;
-  for(const order of queue.active){
-    if(order.status==='preparing')continue;
-    const {rows}=await query("UPDATE orders SET status='preparing',activated_at=COALESCE(activated_at,NOW()),preparation_started_at=COALESCE(preparation_started_at,NOW()) WHERE id=$1 AND payment_status='paid' AND status NOT IN('preparing','completed','cancelled') RETURNING *",[order.id]);
-    if(rows[0]){changed=true;io.emit('order:activated',rows[0]);io.emit('order:updated',rows[0]);}
-  }
-  return changed;
+  const pending=queue.active.filter(order=>order.status!=='preparing');
+  if(!pending.length)return [];
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const activated=[];
+    for(const order of pending){
+      const {rows}=await client.query("UPDATE orders SET status='preparing',activated_at=COALESCE(activated_at,NOW()),preparation_started_at=COALESCE(preparation_started_at,NOW()) WHERE id=$1 AND payment_status='paid' AND status NOT IN('preparing','completed','cancelled') RETURNING *",[order.id]);
+      if(rows[0])activated.push(rows[0]);
+    }
+    await client.query('COMMIT');
+    activated.forEach(order=>{io.emit('order:activated',order);io.emit('order:updated',order)});
+    return activated;
+  }catch(error){await client.query('ROLLBACK');throw error}finally{client.release()}
 }
 async function getKitchenQueue(){
   let {rows}=await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')"));
   let queue=queueSnapshot(rows);
-  if(await activateQueueOrders(queue)){
+  if((await activateQueueOrders(queue)).length){
     ({rows}=await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')")));
     queue=queueSnapshot(rows);
   }
@@ -82,13 +89,23 @@ async function updateOrderStatus(req,res,source='orders'){
   const status=String(req.body.status||'').toLowerCase();
   if(!['preparing','completed'].includes(status))return res.status(400).json({message:'Invalid status'});
   try{
+    const {rows:currentRows}=await query('SELECT status,payment_status FROM orders WHERE id=$1',[req.params.id]);
+    const currentStatus=currentRows[0];
+    if(!currentStatus)return res.status(404).json({message:source==='kitchen'?'Kitchen order not found':'Not found'});
+    if(source==='kitchen'&&currentStatus.payment_status!=='paid')return res.status(404).json({message:'Kitchen order not found'});
     let result;
     if(status==='preparing'){
-      const {rows}=await query(`UPDATE orders SET status='preparing',activated_at=COALESCE(activated_at,NOW()),preparation_started_at=COALESCE(preparation_started_at,NOW()) WHERE id=$1 ${source==='kitchen'?"AND payment_status='paid'":''} AND status NOT IN('completed','cancelled') RETURNING *`,[req.params.id]);
-      if(!rows[0])return res.status(404).json({message:source==='kitchen'?'Kitchen order not found':'Not found'});
+      if(currentStatus.status==='preparing')return res.status(409).json({message:'Order is already preparing'});
+      if(['completed','cancelled'].includes(currentStatus.status))return res.status(409).json({message:`Cannot prepare a ${currentStatus.status} order`});
+      if(!['confirmed','new'].includes(currentStatus.status))return res.status(409).json({message:`Cannot prepare an order in ${currentStatus.status} status`});
+      const {rows}=await query(`UPDATE orders SET status='preparing',activated_at=COALESCE(activated_at,NOW()),preparation_started_at=COALESCE(preparation_started_at,NOW()) WHERE id=$1 ${source==='kitchen'?"AND payment_status='paid'":''} AND status IN('confirmed','new') RETURNING *`,[req.params.id]);
+      if(!rows[0])return res.status(409).json({message:'Order transition could not be completed'});
       result=rows[0];
     }else{
-      const {rows}=await query(`UPDATE orders SET status='completed',completed_at=NOW(),prep_time_seconds=CASE WHEN COALESCE(activated_at,preparation_started_at) IS NULL THEN NULL ELSE GREATEST(0,EXTRACT(EPOCH FROM (NOW()-COALESCE(activated_at,preparation_started_at)))::int) END,was_delayed=CASE WHEN COALESCE(activated_at,preparation_started_at) IS NULL THEN false ELSE EXTRACT(EPOCH FROM (NOW()-COALESCE(activated_at,preparation_started_at)))::int>COALESCE(target_prep_seconds,480) END WHERE id=$1 ${source==='kitchen'?"AND payment_status='paid'":''} AND status NOT IN('completed','cancelled') RETURNING *`,[req.params.id]);
+      if(currentStatus.status==='completed')return res.status(409).json({message:'Order is already completed or unavailable'});
+      if(currentStatus.status==='cancelled')return res.status(409).json({message:'Cannot complete a cancelled order'});
+      if(currentStatus.status!=='preparing')return res.status(409).json({message:'Order must be preparing before completion'});
+      const {rows}=await query(`UPDATE orders SET status='completed',completed_at=NOW(),prep_time_seconds=CASE WHEN COALESCE(activated_at,preparation_started_at) IS NULL THEN NULL ELSE GREATEST(0,EXTRACT(EPOCH FROM (NOW()-COALESCE(activated_at,preparation_started_at)))::int) END,was_delayed=CASE WHEN COALESCE(activated_at,preparation_started_at) IS NULL THEN false ELSE EXTRACT(EPOCH FROM (NOW()-COALESCE(activated_at,preparation_started_at)))::int>COALESCE(target_prep_seconds,480) END WHERE id=$1 ${source==='kitchen'?"AND payment_status='paid'":''} AND status='preparing' RETURNING *`,[req.params.id]);
       if(!rows[0])return res.status(409).json({message:'Order is already completed or unavailable'});
       result=rows[0];
     }
