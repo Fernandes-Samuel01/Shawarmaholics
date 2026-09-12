@@ -35,9 +35,23 @@ function queueSnapshot(orders,maxActive=2){
     .slice().sort((a,b)=>new Date(a.received_at||a.created_at)-new Date(b.received_at||b.created_at)||Number(a.id)-Number(b.id));
   return {active:eligible.slice(0,maxActive),upNext:eligible.slice(maxActive,maxActive+1)[0]||null,waiting:eligible.slice(maxActive+1)};
 }
+async function activateQueueOrders(queue){
+  let changed=false;
+  for(const order of queue.active){
+    if(order.status==='preparing')continue;
+    const {rows}=await query("UPDATE orders SET status='preparing',activated_at=COALESCE(activated_at,NOW()),preparation_started_at=COALESCE(preparation_started_at,NOW()) WHERE id=$1 AND payment_status='paid' AND status NOT IN('preparing','completed','cancelled') RETURNING *",[order.id]);
+    if(rows[0]){changed=true;io.emit('order:activated',rows[0]);io.emit('order:updated',rows[0]);}
+  }
+  return changed;
+}
 async function getKitchenQueue(){
-  const {rows}=await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')"));
-  return {orders:rows,queue:queueSnapshot(rows)};
+  let {rows}=await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')"));
+  let queue=queueSnapshot(rows);
+  if(await activateQueueOrders(queue)){
+    ({rows}=await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')")));
+    queue=queueSnapshot(rows);
+  }
+  return {orders:rows,queue};
 }
 
 app.get('/api/health',(req,res)=>res.json({ok:true}));
@@ -59,6 +73,7 @@ app.post('/api/orders',async(req,res)=>{
     await client.query('COMMIT');
     const result={...order,items};
     io.emit(orderStatus==='confirmed'?'order:new':'order:awaiting_payment',result);
+    if(orderStatus==='confirmed')await getKitchenQueue();
     res.status(201).json({order:{...result,estimated_minutes:12}});
   }catch(e){await client.query('ROLLBACK');res.status(500).json({message:e.message})}finally{client.release()}
 });
