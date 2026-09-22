@@ -323,6 +323,69 @@ app.post('/api/admin/menu/customization-groups/:groupId/options',async(req,res)=
     res.status(500).json({message:'Unable to create customization option'});
   }finally{client.release()}
 });
+app.patch('/api/admin/menu/customization-groups/:groupId/options/:optionId',async(req,res)=>{
+  const groupId=Number(req.params.groupId),optionId=Number(req.params.optionId);
+  if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
+  if(!Number.isInteger(optionId)||optionId<1)return res.status(400).json({message:'Invalid customization option ID'});
+  const body=req.body||{};
+  const allowed=['name','price'];
+  if(Object.keys(body).some(key=>!allowed.includes(key)))return res.status(400).json({message:'Request contains unsupported fields'});
+  if(!Object.keys(body).length)return res.status(400).json({message:'At least one customization option field is required'});
+  const has=key=>Object.prototype.hasOwnProperty.call(body,key);
+  const updates={};
+  if(has('name')){
+    if(typeof body.name!=='string')return res.status(400).json({message:'Option name is required'});
+    const name=body.name.trim();
+    if(!name)return res.status(400).json({message:'Option name cannot be empty'});
+    updates.name=name;
+  }
+  if(has('price')){
+    const price=typeof body.price==='string'&&body.price.trim()===''?NaN:Number(body.price);
+    if(!Number.isFinite(price)||price<0)return res.status(400).json({message:'Option price must be a non-negative number'});
+    updates.price=price;
+  }
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('SELECT id FROM menu_customization_groups WHERE id=$1 FOR UPDATE',[groupId]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group not found'})}
+    const {rows:[existing]}=await client.query('SELECT id FROM menu_customization_options WHERE id=$1 AND group_id=$2 FOR UPDATE',[optionId,groupId]);
+    if(!existing){await client.query('ROLLBACK');return res.status(404).json({message:'Customization option not found for this group'})}
+    if(updates.name){
+      const {rows:[duplicate]}=await client.query('SELECT id FROM menu_customization_options WHERE group_id=$1 AND lower(name)=lower($2) AND id<>$3 LIMIT 1',[groupId,updates.name,optionId]);
+      if(duplicate){await client.query('ROLLBACK');return res.status(409).json({message:'An option with this name already exists in this customization group'})}
+    }
+    const columns=Object.keys(updates),values=columns.map(column=>updates[column]);
+    const assignments=columns.map((column,index)=>`${column}=$${index+1}`).join(',');
+    const {rows:[option]}=await client.query(`UPDATE menu_customization_options SET ${assignments},updated_at=NOW() WHERE id=$${values.length+1} AND group_id=$${values.length+2} RETURNING id,group_id,name,price,position,is_active,created_at,updated_at`,[...values,optionId,groupId]);
+    await client.query('COMMIT');
+    res.json({message:'Customization option updated successfully',option});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch{}
+    if(e.code==='23505')return res.status(409).json({message:'An option with this name already exists in this customization group'});
+    res.status(500).json({message:'Unable to update customization option'});
+  }finally{client.release()}
+});
+app.patch('/api/admin/menu/customization-groups/:groupId/options/:optionId/status',async(req,res)=>{
+  const groupId=Number(req.params.groupId),optionId=Number(req.params.optionId);
+  if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
+  if(!Number.isInteger(optionId)||optionId<1)return res.status(400).json({message:'Invalid customization option ID'});
+  const body=req.body||{};
+  if(Object.keys(body).some(key=>key!=='is_active')||typeof body.is_active!=='boolean')return res.status(400).json({message:'is_active must be a boolean'});
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('SELECT id FROM menu_customization_groups WHERE id=$1 FOR UPDATE',[groupId]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group not found'})}
+    const {rows:[option]}=await client.query('UPDATE menu_customization_options SET is_active=$1,updated_at=NOW() WHERE id=$2 AND group_id=$3 RETURNING id,group_id,name,price,position,is_active,created_at,updated_at',[body.is_active,optionId,groupId]);
+    if(!option){await client.query('ROLLBACK');return res.status(404).json({message:'Customization option not found for this group'})}
+    await client.query('COMMIT');
+    res.json({message:body.is_active?'Customization option activated successfully':'Customization option archived successfully',option});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch{}
+    res.status(500).json({message:'Unable to update customization option status'});
+  }finally{client.release()}
+});
 app.post('/api/admin/menu/categories',async(req,res)=>{
   const rawName=req.body?.name;
   if(typeof rawName!=='string')return res.status(400).json({message:'Category name is required'});
