@@ -225,6 +225,65 @@ app.post('/api/admin/menu/customization-groups',async(req,res)=>{
     res.status(500).json({message:'Unable to create customization group'});
   }finally{client.release()}
 });
+app.patch('/api/admin/menu/customization-groups/:id',async(req,res)=>{
+  const groupId=Number(req.params.id);
+  if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
+  const body=req.body||{};
+  const allowed=['name','code'];
+  if(Object.keys(body).some(key=>!allowed.includes(key)))return res.status(400).json({message:'Request contains unsupported fields'});
+  if(!Object.keys(body).length)return res.status(400).json({message:'At least one customization group field is required'});
+  const has=key=>Object.prototype.hasOwnProperty.call(body,key);
+  const updates={};
+  if(has('name')){
+    if(typeof body.name!=='string')return res.status(400).json({message:'Group name is required'});
+    const name=body.name.trim();
+    if(!name)return res.status(400).json({message:'Group name cannot be empty'});
+    updates.name=name;
+  }
+  if(has('code')){
+    if(typeof body.code!=='string')return res.status(400).json({message:'Group code is required'});
+    const code=body.code.trim().toUpperCase();
+    if(!code)return res.status(400).json({message:'Group code cannot be empty'});
+    if(!/^[A-Z0-9][A-Z0-9_-]*$/.test(code))return res.status(400).json({message:'Group code may contain only letters, numbers, hyphens, and underscores'});
+    updates.code=code;
+  }
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[existing]}=await client.query('SELECT id FROM menu_customization_groups WHERE id=$1 FOR UPDATE',[groupId]);
+    if(!existing){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group not found'})}
+    const duplicateChecks=[],duplicateValues=[];
+    if(updates.name){duplicateValues.push(updates.name);duplicateChecks.push(`lower(name)=lower($${duplicateValues.length})`)}
+    if(updates.code){duplicateValues.push(updates.code);duplicateChecks.push(`lower(code)=lower($${duplicateValues.length})`)}
+    const {rows:duplicate}=await client.query(`SELECT id FROM menu_customization_groups WHERE id<>$${duplicateValues.length+1} AND (${duplicateChecks.join(' OR ')}) LIMIT 1`,[...duplicateValues,groupId]);
+    if(duplicate[0]){await client.query('ROLLBACK');return res.status(409).json({message:'A customization group with this name or code already exists'})}
+    const columns=Object.keys(updates);const values=columns.map(column=>updates[column]);
+    const assignments=columns.map((column,index)=>`${column}=$${index+1}`).join(',');
+    const {rows:[group]}=await client.query(`UPDATE menu_customization_groups SET ${assignments},updated_at=NOW() WHERE id=$${values.length+1} RETURNING id,name,code,group_type,position,is_active,created_at,updated_at`,[...values,groupId]);
+    await client.query('COMMIT');
+    res.json({message:'Customization group updated successfully',group});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch{}
+    if(e.code==='23505')return res.status(409).json({message:'A customization group with this name or code already exists'});
+    res.status(500).json({message:'Unable to update customization group'});
+  }finally{client.release()}
+});
+app.patch('/api/admin/menu/customization-groups/:id/status',async(req,res)=>{
+  const groupId=Number(req.params.id);
+  if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
+  if(typeof req.body?.is_active!=='boolean')return res.status(400).json({message:'is_active must be a boolean'});
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[group]}=await client.query('UPDATE menu_customization_groups SET is_active=$1,updated_at=NOW() WHERE id=$2 RETURNING id,name,code,group_type,position,is_active,created_at,updated_at',[req.body.is_active,groupId]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group not found'})}
+    await client.query('COMMIT');
+    res.json({message:req.body.is_active?'Customization group activated successfully':'Customization group archived successfully',group});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch{}
+    res.status(500).json({message:'Unable to update customization group status'});
+  }finally{client.release()}
+});
 app.get('/api/admin/menu/customization-groups/:groupId/options',async(req,res)=>{
   const groupId=Number(req.params.groupId);
   if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
