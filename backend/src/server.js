@@ -195,6 +195,51 @@ app.post('/api/admin/menu/items/:itemId/customization-groups',async(req,res)=>{
     res.status(500).json({message:'Unable to assign customization group'});
   }finally{client.release()}
 });
+app.patch('/api/admin/menu/items/:itemId/customization-groups/:groupId',async(req,res)=>{
+  const itemId=Number(req.params.itemId),groupId=Number(req.params.groupId);
+  if(!Number.isInteger(itemId)||itemId<1)return res.status(400).json({message:'Invalid menu item ID'});
+  if(!Number.isInteger(groupId)||groupId<1)return res.status(400).json({message:'Invalid customization group ID'});
+  const body=req.body||{};
+  const allowed=['is_required','min_selections','max_selections'];
+  if(Object.keys(body).some(key=>!allowed.includes(key)))return res.status(400).json({message:'Request contains unsupported fields'});
+  if(!Object.keys(body).length)return res.status(400).json({message:'At least one assignment field is required'});
+  const has=key=>Object.prototype.hasOwnProperty.call(body,key);
+  const updates={};
+  if(has('is_required')){
+    if(typeof body.is_required!=='boolean')return res.status(400).json({message:'is_required must be a boolean'});
+    updates.is_required=body.is_required;
+  }
+  if(has('min_selections')){
+    if(!Number.isInteger(body.min_selections)||body.min_selections<0)return res.status(400).json({message:'Minimum selections must be a non-negative integer'});
+    updates.min_selections=body.min_selections;
+  }
+  if(has('max_selections')){
+    if(!Number.isInteger(body.max_selections)||body.max_selections<0)return res.status(400).json({message:'Maximum selections must be a non-negative integer'});
+    updates.max_selections=body.max_selections;
+  }
+  const client=await db.connect();
+  try{
+    await client.query('BEGIN');
+    const {rows:[item]}=await client.query('SELECT id FROM menu_items WHERE id=$1 FOR UPDATE',[itemId]);
+    if(!item){await client.query('ROLLBACK');return res.status(404).json({message:'Menu item not found'})}
+    const {rows:[group]}=await client.query('SELECT id FROM menu_customization_groups WHERE id=$1 FOR UPDATE',[groupId]);
+    if(!group){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group not found'})}
+    const {rows:[existing]}=await client.query('SELECT is_required,min_selections,max_selections FROM menu_item_customization_groups WHERE menu_item_id=$1 AND group_id=$2 FOR UPDATE',[itemId,groupId]);
+    if(!existing){await client.query('ROLLBACK');return res.status(404).json({message:'Customization group is not assigned to this menu item'})}
+    const finalState={...existing,...updates};
+    if(finalState.max_selections<finalState.min_selections){await client.query('ROLLBACK');return res.status(400).json({message:'Maximum selections must be greater than or equal to minimum selections'})}
+    if(finalState.is_required&&finalState.min_selections<1){await client.query('ROLLBACK');return res.status(400).json({message:'Required customization groups must have at least one minimum selection'})}
+    const columns=Object.keys(updates),values=columns.map(column=>updates[column]);
+    const assignments=columns.map((column,index)=>`${column}=$${index+1}`).join(',');
+    await client.query(`UPDATE menu_item_customization_groups SET ${assignments} WHERE menu_item_id=$${values.length+1} AND group_id=$${values.length+2}`,[...values,itemId,groupId]);
+    const {rows:[assignment]}=await client.query('SELECT micg.group_id,mcg.name group_name,mcg.code group_code,mcg.group_type,mcg.is_active group_is_active,micg.is_required,micg.min_selections,micg.max_selections,micg.position FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=$1 AND micg.group_id=$2',[itemId,groupId]);
+    await client.query('COMMIT');
+    res.json({message:'Customization group assignment updated successfully',assignment});
+  }catch(e){
+    try{await client.query('ROLLBACK')}catch{}
+    res.status(500).json({message:'Unable to update customization group assignment'});
+  }finally{client.release()}
+});
 app.get('/api/admin/menu/customization-groups',async(req,res)=>{try{const {rows}=await query('SELECT id,name,code,group_type,position,is_active,created_at,updated_at FROM menu_customization_groups ORDER BY position ASC,id ASC');res.json({groups:rows})}catch(e){res.status(500).json({message:'Unable to load customization groups'})}});
 app.post('/api/admin/menu/customization-groups',async(req,res)=>{
   const body=req.body||{};
