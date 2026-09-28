@@ -195,6 +195,62 @@ app.post('/api/admin/menu/items/:itemId/customization-groups', async (req, res) 
     res.status(500).json({ message: 'Unable to assign customization group' });
   } finally { client.release() }
 });
+app.patch('/api/admin/menu/items/:itemId/customization-groups/reorder', async (req, res) => {
+  const itemId = Number(req.params.itemId);
+  if (!Number.isInteger(itemId) || itemId < 1) return res.status(400).json({ message: 'Invalid menu item ID' });
+
+  const groupIds = req.body?.group_ids;
+  if (!Array.isArray(groupIds) || !groupIds.length) return res.status(400).json({ message: 'group_ids must be a non-empty array' });
+  if (groupIds.some(groupId => !Number.isInteger(groupId) || groupId < 1)) return res.status(400).json({ message: 'group_ids must contain valid customization group IDs' });
+  if (new Set(groupIds).size !== groupIds.length) return res.status(400).json({ message: 'group_ids must not contain duplicates' });
+
+  const client = await db.connect();
+  try {
+    await client.query('BEGIN');
+
+    const { rows: [item] } = await client.query('SELECT id FROM menu_items WHERE id=$1 FOR UPDATE', [itemId]);
+    if (!item) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ message: 'Menu item not found' });
+    }
+
+    await client.query("SELECT pg_advisory_xact_lock(hashtext('menu_item_customization_groups_position:'||$1::text))", [itemId]);
+
+    const { rows: assignments } = await client.query(
+      'SELECT group_id FROM menu_item_customization_groups WHERE menu_item_id=$1 ORDER BY position ASC,group_id ASC',
+      [itemId]
+    );
+
+    if (assignments.length !== groupIds.length || assignments.some((assignment, index) => assignment.group_id !== groupIds[index])) {
+      const assignedIds = assignments.map(assignment => assignment.group_id).sort((a, b) => a - b);
+      const requestedIds = [...groupIds].sort((a, b) => a - b);
+      if (assignedIds.length !== requestedIds.length || assignedIds.some((groupId, index) => groupId !== requestedIds[index])) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'group_ids must contain exactly the customization groups assigned to this menu item' });
+      }
+    }
+
+    for (let index = 0; index < groupIds.length; index += 1) {
+      await client.query(
+        'UPDATE menu_item_customization_groups SET position=$1 WHERE menu_item_id=$2 AND group_id=$3',
+        [index + 1, itemId, groupIds[index]]
+      );
+    }
+
+    const { rows: reorderedGroups } = await client.query(
+      'SELECT micg.group_id,mcg.name group_name,mcg.code group_code,mcg.group_type,mcg.is_active group_is_active,micg.is_required,micg.min_selections,micg.max_selections,micg.position FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=$1 ORDER BY micg.position ASC,micg.group_id ASC',
+      [itemId]
+    );
+
+    await client.query('COMMIT');
+    res.json({ message: 'Customization group order updated successfully', groups: reorderedGroups });
+  } catch (e) {
+    try { await client.query('ROLLBACK') } catch { }
+    res.status(500).json({ message: 'Unable to reorder customization groups' });
+  } finally {
+    client.release();
+  }
+});
 app.patch('/api/admin/menu/items/:itemId/customization-groups/:groupId', async (req, res) => {
   const itemId = Number(req.params.itemId), groupId = Number(req.params.groupId);
   if (!Number.isInteger(itemId) || itemId < 1) return res.status(400).json({ message: 'Invalid menu item ID' });
