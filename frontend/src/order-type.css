@@ -1,1 +1,59 @@
-.order-type-control{position:relative}.order-type-control .text-btn{padding:10px 7px;border-radius:8px}.order-type-control .text-btn:hover{background:#f5ebe2}.order-type-picker{position:absolute;top:calc(100% + 9px);right:0;z-index:20;min-width:205px;padding:7px;background:#fffdfa;border:1px solid var(--line);border-radius:12px;box-shadow:0 17px 35px #35101d24}.order-type-picker button{width:100%;display:flex;justify-content:space-between;align-items:center;padding:13px 12px;border-radius:8px;background:transparent;color:#5f4b42;text-align:left;font-size:13px;font-weight:600}.order-type-picker button:hover{background:#f8eee4;color:var(--wine)}.order-type-picker button.selected{background:#f7e8e8;color:var(--wine)}.order-type-picker svg{width:16px;height:16px;opacity:0}.order-type-picker button.selected svg{opacity:1}
+.order-type-control {
+    position: relative
+}
+
+.order-type-control .text-btn {
+    padding: 10px 7px;
+    border-radius: 8px
+}
+
+.order-type-control .text-btn:hover {
+    background: #f5ebe2
+}
+
+.order-type-picker {
+    position: absolute;
+    top: calc(100% + 9px);
+    right: 0;
+    z-index: 20;
+    min-width: 205px;
+    padding: 7px;
+    background: #fffdfa;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    box-shadow: 0 17px 35px #35101d24
+}
+
+.order-type-picker button {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 13px 12px;
+    border-radius: 8px;
+    background: transparent;
+    color: #5f4b42;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600
+}
+
+.order-type-picker button:hover {
+    background: #f8eee4;
+    color: var(--wine)
+}
+
+.order-type-picker button.selected {
+    background: #f7e8e8;
+    color: var(--wine)
+}
+
+.order-type-picker svg {
+    width: 16px;
+    height: 16px;
+    opacity: 0
+}
+
+.order-type-picker button.selected svg {
+    opacity: 1
+}

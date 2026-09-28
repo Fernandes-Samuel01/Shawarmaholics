@@ -1,5 +1,5 @@
-import React,{useState} from 'react';
-import {Building2,ExternalLink,Landmark} from 'lucide-react';
+import React, { useState } from 'react';
+import { Building2, ExternalLink, Landmark } from 'lucide-react';
 import BranchSelector from './BranchSelector';
 import HeadOfficeDashboard from './HeadOfficeDashboard';
 import './admin.css';
@@ -9,17 +9,17 @@ function Brand() {
 }
 
 export default function AdminPanel({ onMode }) {
-  const [activeSection,setActiveSection]=useState('head-office');
+  const [activeSection, setActiveSection] = useState('head-office');
   return <main className="admin-panel">
     <aside className="admin-panel-sidebar">
       <Brand />
       <nav className="admin-panel-nav" aria-label="Admin navigation">
         <span className="admin-panel-nav-label">ADMINISTRATION</span>
-        <button className={'admin-panel-nav-item '+(activeSection==='head-office'?'active':'')} type="button" aria-current={activeSection==='head-office'?'page':undefined} onClick={()=>setActiveSection('head-office')}>
+        <button className={'admin-panel-nav-item ' + (activeSection === 'head-office' ? 'active' : '')} type="button" aria-current={activeSection === 'head-office' ? 'page' : undefined} onClick={() => setActiveSection('head-office')}>
           <Landmark />
           <span>Head Office</span>
         </button>
-        <button className={'admin-panel-nav-item '+(activeSection==='branches'?'active':'')} type="button" aria-current={activeSection==='branches'?'page':undefined} onClick={()=>setActiveSection('branches')}>
+        <button className={'admin-panel-nav-item ' + (activeSection === 'branches' ? 'active' : '')} type="button" aria-current={activeSection === 'branches' ? 'page' : undefined} onClick={() => setActiveSection('branches')}>
           <Building2 />
           <span>Branches</span>
         </button>
@@ -33,7 +33,7 @@ export default function AdminPanel({ onMode }) {
       </div>
     </aside>
     <section className="admin-panel-main">
-      {activeSection==='head-office'?<HeadOfficeDashboard/>:<BranchSelector/>}
+      {activeSection === 'head-office' ? <HeadOfficeDashboard /> : <BranchSelector />}
     </section>
   </main>;
 }

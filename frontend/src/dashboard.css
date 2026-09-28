@@ -1,1 +1,54 @@
-.welcome .languages{margin:42px auto;display:flex;width:max-content;border:1px solid #ffffff35;border-radius:18px;padding:5px;gap:4px;background:#1607112b}.welcome .languages button{color:#f7e8df;background:none;padding:7px 13px 8px;min-width:73px;border-radius:13px;display:flex;flex-direction:column;align-items:center;gap:2px;transition:.18s}.welcome .languages button b{font-size:17px;line-height:1.1;font-weight:600}.welcome .languages button small{font-size:9px;letter-spacing:.02em;opacity:.75}.welcome .languages .selected{background:#fff;color:var(--wine);box-shadow:0 4px 12px #0002}.welcome .languages .selected small{opacity:1}.language-hi,.language-mr{font-family:'Noto Sans Devanagari','DM Sans',sans-serif}.language-kn{font-family:'Noto Sans Kannada','DM Sans',sans-serif}
+.welcome .languages {
+    margin: 42px auto;
+    display: flex;
+    width: max-content;
+    border: 1px solid #ffffff35;
+    border-radius: 18px;
+    padding: 5px;
+    gap: 4px;
+    background: #1607112b
+}
+
+.welcome .languages button {
+    color: #f7e8df;
+    background: none;
+    padding: 7px 13px 8px;
+    min-width: 73px;
+    border-radius: 13px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    transition: .18s
+}
+
+.welcome .languages button b {
+    font-size: 17px;
+    line-height: 1.1;
+    font-weight: 600
+}
+
+.welcome .languages button small {
+    font-size: 9px;
+    letter-spacing: .02em;
+    opacity: .75
+}
+
+.welcome .languages .selected {
+    background: #fff;
+    color: var(--wine);
+    box-shadow: 0 4px 12px #0002
+}
+
+.welcome .languages .selected small {
+    opacity: 1
+}
+
+.language-hi,
+.language-mr {
+    font-family: 'Noto Sans Devanagari', 'DM Sans', sans-serif
+}
+
+.language-kn {
+    font-family: 'Noto Sans Kannada', 'DM Sans', sans-serif
+}
