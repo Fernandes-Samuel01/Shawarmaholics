@@ -13,15 +13,12 @@ const request = async (path, options = {}, token = '') => {
 
 const money = value => `₹${Number(value || 0).toFixed(2)}`;
 
-export default function MasterPricing({ onBack }) {
+export default function MasterPricing({ adminToken, onBack }) {
   const [items, setItems] = useState([]);
   const [proposals, setProposals] = useState([]);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
-  const [token, setToken] = useState(() => sessionStorage.getItem('shawarmaholics_admin_token') || '');
-  const [email, setEmail] = useState('admin@shawarmaholics.in');
-  const [password, setPassword] = useState('');
-  const [loginBusy, setLoginBusy] = useState(false);
+  const token = adminToken;
   const [reviewingId, setReviewingId] = useState(null);
   const [rejectingId, setRejectingId] = useState(null);
   const [reason, setReason] = useState('');
@@ -50,23 +47,6 @@ export default function MasterPricing({ onBack }) {
 
   const visible = useMemo(() => proposals.filter(item => filter === 'ALL' || item.status === filter), [proposals, filter]);
   const pendingCount = proposals.filter(item => item.status === 'PENDING').length;
-
-  const login = async event => {
-    event.preventDefault();
-    setLoginBusy(true);
-    setError('');
-    try {
-      const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      if (data.user?.role !== 'admin') throw new Error('This screen requires a Head Office admin account');
-      sessionStorage.setItem('shawarmaholics_admin_token', data.token);
-      setToken(data.token);
-      setPassword('');
-    } catch (e) {
-      setError(e.message);
-    } finally {
-      setLoginBusy(false);
-    }
-  };
 
   const review = async (id, decision, rejectionReason = '') => {
     setReviewingId(id);
@@ -106,16 +86,11 @@ export default function MasterPricing({ onBack }) {
     <section className="admin-pricing-section">
       <div className="admin-section-heading"><span className="admin-panel-eyebrow">BRANCH APPROVALS</span><h2>Price proposals {pendingCount > 0 && <span className="admin-pricing-count">{pendingCount}</span>}</h2><p>Approve or reject proposals. A proposal changes the branch's effective price only after approval.</p></div>
 
-      {!token && <form className="admin-pricing-login" onSubmit={login}>
-        <div><strong>Head Office sign-in required</strong><p>Sign in with an admin account to review branch pricing proposals.</p></div>
-        <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Admin email" required />
-        <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required />
-        <button type="submit" disabled={loginBusy}>{loginBusy ? 'Signing in...' : 'Sign in to review'}</button>
-      </form>}
+      {!token && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">Head Office admin authentication is required.</div>}
 
       {token && <div className="admin-pricing-tabs">{['PENDING','APPROVED','REJECTED','ALL'].map(value => <button key={value} type="button" className={filter === value ? 'active' : ''} onClick={() => setFilter(value)}>{value === 'PENDING' ? `Pending ${pendingCount ? `(${pendingCount})` : ''}` : value.charAt(0) + value.slice(1).toLowerCase()}</button>)}</div>}
 
-      {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}{token && error === 'Authentication required' && <button type="button" onClick={() => { sessionStorage.removeItem('shawarmaholics_admin_token'); setToken(''); }}>Sign in again</button>}</div>}
+      {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}</div>}
 
       {token && status !== 'loading' && visible.length === 0 && <div className="admin-branch-feedback" role="status">{filter === 'PENDING' ? 'No pending branch price proposals.' : 'No proposals in this view.'}</div>}
 
