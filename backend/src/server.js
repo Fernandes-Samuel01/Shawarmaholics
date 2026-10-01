@@ -17,6 +17,7 @@ const query = (text, params = []) => db.query(text, params);
 require('./kitchen-routes')(app, query, io);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
+require('./routes/branch-pricing-routes')(app, { query, db, auth });
 
 const auth = (roles = []) => (req, res, next) => {
   try {
