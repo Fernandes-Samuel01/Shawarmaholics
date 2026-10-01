@@ -608,20 +608,262 @@ app.get('/api/orders', async (req, res) => { try { const states = (req.query.sta
 app.post('/api/orders', async (req, res) => {
   const client = await db.connect();
   try {
-    const { orderType, items = [], paymentMethod, paymentStatus = 'pending', orderStatus = 'awaiting_payment' } = req.body;
-    if (!items.length) return res.status(400).json({ message: 'Items required' });
+    const body = req.body || {};
+    const { orderType, items = [], paymentMethod, paymentStatus = 'pending', orderStatus = 'awaiting_payment' } = body;
+    if (!['EAT HERE', 'TAKE PARCEL'].includes(orderType)) return res.status(400).json({ message: 'Invalid order type' });
+    if (!Array.isArray(items) || !items.length) return res.status(400).json({ message: 'Items required' });
     if (!['upi', 'cash'].includes(paymentMethod) || !['pending', 'paid'].includes(paymentStatus) || !['awaiting_payment', 'confirmed'].includes(orderStatus)) return res.status(400).json({ message: 'Invalid payment or order status' });
+    if (items.length > 50) return res.status(400).json({ message: 'Too many order items' });
+
     await client.query('BEGIN');
-    const calculateLineTotal = item => { const customizations = item.customizations || {}; const extrasTotal = (customizations.extras || []).reduce((sum, extra) => sum + Number(extra.price || 0), 0); const sauceTotal = Number(customizations.sauce?.price || 0); return Number(item.unitPrice || 0) * Number(item.quantity || 0) + extrasTotal + sauceTotal };
-    const total = items.reduce((sum, item) => sum + calculateLineTotal(item), 0);
-    const { rows: [order] } = await client.query("INSERT INTO orders(order_number,order_type,total,payment_method,payment_status,status,received_at,target_prep_seconds) VALUES ('A-'||nextval('order_number_seq'),$1,$2,$3,$4,$5,NOW(),480) RETURNING *", [orderType, total, paymentMethod, paymentStatus, orderStatus]);
-    for (const item of items) await client.query('INSERT INTO order_items(order_id,menu_item_id,item_name,quantity,unit_price,customizations) VALUES($1,$2,$3,$4,$5,$6)', [order.id, item.menuItemId || null, item.name, item.quantity, item.unitPrice, item.customizations || {}]);
+
+    const normalizedItems = [];
+    let totalCents = 0n;
+    const toCents = value => {
+      const text = String(value);
+      if (!/^\d+(?:\.\d{1,2})?$/.test(text)) throw new Error('Invalid monetary value');
+      const [whole, fraction = ''] = text.split('.');
+      return BigInt(whole) * 100n + BigInt((fraction + '00').slice(0, 2));
+    };
+
+    for (const item of items) {
+      if (!item || typeof item !== 'object' || Array.isArray(item)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid order item' });
+      }
+
+      const menuItemId = item.menuItemId;
+      const quantity = item.quantity;
+
+      if (!Number.isInteger(menuItemId) || menuItemId < 1) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid menu item ID' });
+      }
+      if (!Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Quantity must be an integer between 1 and 99' });
+      }
+
+      const { rows: [menuItem] } = await client.query(
+        'SELECT id,name,price,is_active,available FROM menu_items WHERE id=$1 FOR UPDATE',
+        [menuItemId]
+      );
+
+      if (!menuItem) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ message: 'Menu item not found' });
+      }
+      if (!menuItem.is_active) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Menu item is archived' });
+      }
+      if (!menuItem.available) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Menu item is unavailable' });
+      }
+
+      const customizations = item.customizations;
+      if (customizations != null && (typeof customizations !== 'object' || Array.isArray(customizations))) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Invalid customizations' });
+      }
+      if (customizations?.specialRequest != null && (typeof customizations.specialRequest !== 'string' || customizations.specialRequest.length > 500)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Special request must be text up to 500 characters' });
+      }
+
+      const submittedGroups = customizations?.groups;
+      if (submittedGroups != null && !Array.isArray(submittedGroups)) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Customization groups must be an array' });
+      }
+
+      const groupsInput = submittedGroups || [];
+      const submittedGroupIds = new Set();
+      const groupSelections = [];
+
+      for (const groupInput of groupsInput) {
+        if (!groupInput || typeof groupInput !== 'object' || Array.isArray(groupInput)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Invalid customization group selection' });
+        }
+
+        const groupId = groupInput.groupId;
+        const optionIds = groupInput.optionIds;
+
+        if (!Number.isInteger(groupId) || groupId < 1) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Invalid customization group ID' });
+        }
+        if (submittedGroupIds.has(groupId)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Duplicate customization group' });
+        }
+        submittedGroupIds.add(groupId);
+
+        if (!Array.isArray(optionIds) || optionIds.some(optionId => !Number.isInteger(optionId) || optionId < 1)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Customization option IDs must be valid integers' });
+        }
+        if (new Set(optionIds).size !== optionIds.length) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Customization options must not contain duplicates' });
+        }
+
+        groupSelections.push({ groupId, optionIds });
+      }
+
+      const { rows: assignedGroups } = await client.query(
+        'SELECT micg.group_id,micg.is_required,micg.min_selections,micg.max_selections,micg.position,mcg.name,mcg.code,mcg.group_type,mcg.is_active FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=$1 ORDER BY micg.position ASC,micg.group_id ASC',
+        [menuItemId]
+      );
+
+      const assignedById = new Map(assignedGroups.map(group => [group.group_id, group]));
+
+      for (const group of assignedGroups) {
+        if (!group.is_active) {
+          if (group.is_required || submittedGroupIds.has(group.group_id)) {
+            await client.query('ROLLBACK');
+            return res.status(400).json({ message: 'Customization group is inactive' });
+          }
+          continue;
+        }
+
+        const selection = groupSelections.find(entry => entry.groupId === group.group_id);
+        const count = selection?.optionIds.length || 0;
+
+        if (count < Number(group.min_selections) || count > Number(group.max_selections)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Invalid number of customization selections' });
+        }
+      }
+
+      for (const selection of groupSelections) {
+        const group = assignedById.get(selection.groupId);
+        if (!group) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Customization group is not assigned to this menu item' });
+        }
+        if (!group.is_active) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Customization group is inactive' });
+        }
+
+        const { rows: options } = await client.query(
+          'SELECT id,group_id,name,price,position,is_active FROM menu_customization_options WHERE group_id=$1 AND id=ANY($2::int[]) ORDER BY position ASC,id ASC',
+          [selection.groupId, selection.optionIds]
+        );
+
+        if (options.length !== selection.optionIds.length) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'One or more customization options do not belong to the selected group' });
+        }
+        if (options.some(option => !option.is_active)) {
+          await client.query('ROLLBACK');
+          return res.status(400).json({ message: 'Customization option is inactive' });
+        }
+
+        selection.options = options;
+      }
+
+      const baseCents = toCents(menuItem.price);
+      const snapshotGroups = [];
+      let customizationCents = 0n;
+
+      for (const group of assignedGroups) {
+        const selection = groupSelections.find(entry => entry.groupId === group.group_id);
+        const options = selection?.options || [];
+        const selectedOptions = options.map(option => {
+          const optionCents = toCents(option.price);
+          customizationCents += optionCents;
+          return {
+            id: option.id,
+            name: option.name,
+            price: Number(option.price)
+          };
+        });
+
+        if (selectedOptions.length) {
+          snapshotGroups.push({
+            groupId: group.group_id,
+            name: group.name,
+            code: group.code,
+            type: group.group_type,
+            required: group.is_required,
+            minSelections: Number(group.min_selections),
+            maxSelections: Number(group.max_selections),
+            options: selectedOptions
+          });
+        }
+      }
+
+      const unitCents = baseCents + customizationCents;
+      const lineTotalCents = unitCents * BigInt(quantity);
+      totalCents += lineTotalCents;
+
+      if (totalCents > 999999999999n) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ message: 'Order total is too large' });
+      }
+
+      const selectedSauce = snapshotGroups.find(group => group.type === 'SAUCE')?.options?.[0] || null;
+      const extras = snapshotGroups
+        .filter(group => group.type === 'EXTRA' || group.type === 'ADD_ON')
+        .flatMap(group => group.options.map(option => ({
+          name: option.name,
+          price: option.price,
+          groupId: group.groupId
+        })));
+
+      const customizationSnapshot = {
+        basePrice: Number(menuItem.price),
+        baseTotal: Number(baseCents) / 100 * quantity,
+        customizationTotal: Number(customizationCents) / 100 * quantity,
+        sauce: selectedSauce ? { name: selectedSauce.name, price: selectedSauce.price } : null,
+        sauceTotal: selectedSauce ? selectedSauce.price : 0,
+        extras,
+        extrasTotal: extras.reduce((sum, extra) => sum + Number(extra.price || 0), 0),
+        groups: snapshotGroups,
+        finalTotal: Number(lineTotalCents) / 100,
+        specialRequest: customizations?.specialRequest?.trim() || ''
+      };
+
+      normalizedItems.push({
+        menuItemId,
+        name: menuItem.name,
+        quantity,
+        unitPrice: Number(menuItem.price),
+        customizations: customizationSnapshot,
+        finalTotal: Number(lineTotalCents) / 100
+      });
+    }
+
+    const total = Number(totalCents) / 100;
+    const { rows: [order] } = await client.query(
+      "INSERT INTO orders(order_number,order_type,total,payment_method,payment_status,status,received_at,target_prep_seconds) VALUES ('A-'||nextval('order_number_seq'),$1,$2,$3,$4,$5,NOW(),480) RETURNING *",
+      [orderType, total.toFixed(2), paymentMethod, paymentStatus, orderStatus]
+    );
+
+    const storedItems = [];
+    for (const item of normalizedItems) {
+      const { rows: [stored] } = await client.query(
+        'INSERT INTO order_items(order_id,menu_item_id,item_name,quantity,unit_price,customizations) VALUES($1,$2,$3,$4,$5,$6) RETURNING id',
+        [order.id, item.menuItemId, item.name, item.quantity, item.unitPrice, item.customizations]
+      );
+      storedItems.push({ ...item, id: stored.id });
+    }
+
     await client.query('COMMIT');
-    const result = { ...order, items };
+
+    const result = { ...order, items: storedItems };
     io.emit(orderStatus === 'confirmed' ? 'order:new' : 'order:awaiting_payment', result);
     if (orderStatus === 'confirmed') await getKitchenQueue();
     res.status(201).json({ order: { ...result, estimated_minutes: 12 } });
-  } catch (e) { await client.query('ROLLBACK'); res.status(500).json({ message: e.message }) } finally { client.release() }
+  } catch (e) {
+    try { await client.query('ROLLBACK') } catch { }
+    const message = e.message === 'Invalid monetary value' ? 'Invalid database price' : 'Unable to create order';
+    res.status(500).json({ message });
+  } finally { client.release() }
 });
 
 async function updateOrderStatus(req, res, source = 'orders') {
