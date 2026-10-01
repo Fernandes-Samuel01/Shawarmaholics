@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart3, Building2, ChevronRight, Package, Settings, ShoppingBag, Users } from 'lucide-react';
+import BranchPricing from './BranchPricing';
+import { ArrowLeft, BarChart3, Building2, ChevronRight, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
 
 const summary = [
   { label: "Today's Revenue", value: '₹48,650' },
@@ -9,6 +10,7 @@ const summary = [
 ];
 
 const management = [
+  { key: 'pricing', label: 'Branch Pricing', icon: ReceiptText, description: 'Propose branch selling prices for Head Office approval.' },
   { key: 'orders', label: 'Orders', icon: ShoppingBag, description: 'View and manage orders for this branch.' },
   { key: 'availability', label: 'Menu Availability', icon: Building2, description: 'Control which master menu items are available at this branch.' },
   { key: 'inventory', label: 'Inventory', icon: Package, description: 'Monitor stock and inventory for this branch.' },
@@ -20,6 +22,7 @@ const management = [
 export default function BranchDashboard({ branch, onBack }) {
   const [activeModule, setActiveModule] = useState(null);
   const selected = management.find(item => item.key === activeModule);
+  if (activeModule === 'pricing') return <BranchPricing branch={branch} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-branch-module admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Branch Dashboard</button>
     <span className="admin-panel-eyebrow">{selected.label.toUpperCase()}</span>
