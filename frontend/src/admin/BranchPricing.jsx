@@ -12,39 +12,32 @@ const request = async (path, options = {}, token = '') => {
 };
 const money = value => `₹${Number(value || 0).toFixed(2)}`;
 
-export default function BranchPricing({ branch, onBack }) {
-  const [token, setToken] = useState(() => sessionStorage.getItem('shawarmaholics_admin_token') || '');
-  const [email, setEmail] = useState('admin@shawarmaholics.in');
-  const [password, setPassword] = useState('');
+
+export default function BranchPricing({ branch, adminToken, onBack }) {
+  const token = adminToken;
   const [items, setItems] = useState([]);
   const [history, setHistory] = useState([]);
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
   const [prices, setPrices] = useState({});
   const [busyId, setBusyId] = useState(null);
-  const [loginBusy, setLoginBusy] = useState(false);
 
-  const load = async activeToken => {
+  const load = async () => {
     setStatus('loading'); setError('');
     try {
-      const data = await request(`/branches/${branch.id}/pricing`, {}, activeToken);
-      setItems(data.items || []); setHistory(data.history || []); setStatus('ready');
-    } catch (e) { setError(e.message); setStatus('error'); }
+      const data = await request(`/branches/${branch.id}/pricing`, {}, token);
+      setItems(data.items || []);
+      setHistory(data.history || []);
+      setStatus('ready');
+    } catch (e) {
+      setError(e.message);
+      setStatus('error');
+    }
   };
-  useEffect(() => { if (token) load(token); else setStatus('ready'); }, [token, branch.id]);
+
+  useEffect(() => { load(); }, [branch.id, token]);
 
   const pendingCount = useMemo(() => items.filter(item => item.pending_proposal_id).length, [items]);
-
-  const login = async event => {
-    event.preventDefault(); setLoginBusy(true); setError('');
-    try {
-      const data = await request('/auth/login', { method: 'POST', body: JSON.stringify({ email, password }) });
-      if (!['admin', 'manager'].includes(data.user?.role)) throw new Error('This screen requires an authorized branch manager or Head Office admin account');
-      if (data.user.role === 'manager' && Number(data.user.branch_id) !== Number(branch.id)) throw new Error('This account is not assigned to this branch');
-      sessionStorage.setItem('shawarmaholics_admin_token', data.token);
-      setToken(data.token); setPassword('');
-    } catch (e) { setError(e.message); } finally { setLoginBusy(false); }
-  };
 
   const propose = async item => {
     const value = Number(prices[item.menu_item_id]);
@@ -59,27 +52,19 @@ export default function BranchPricing({ branch, onBack }) {
         body: JSON.stringify({ menuItemId: item.menu_item_id, proposedPrice: Number(value.toFixed(2)) })
       }, token);
       setPrices(current => ({ ...current, [item.menu_item_id]: '' }));
-      await load(token);
-    } catch (e) { setError(e.message); } finally { setBusyId(null); }
+      await load();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setBusyId(null);
+    }
   };
-
-  if (!token) return <section className="admin-branch-module admin-branch-pricing" aria-labelledby="branch-pricing-title">
-    <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Branch Dashboard</button>
-    <header className="admin-branch-module-header"><span className="admin-panel-eyebrow">BRANCH PRICING</span><h1 id="branch-pricing-title">{branch.name}</h1><p>Propose branch selling prices. Head Office approval is required before a proposal becomes effective.</p></header>
-    <form className="admin-pricing-login" onSubmit={login}>
-      <div><strong>Sign in to manage branch pricing</strong><p>Use the branch manager account for this branch, or a Head Office admin account.</p></div>
-      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="Account email" required />
-      <input type="password" value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" required />
-      <button type="submit" disabled={loginBusy}>{loginBusy ? 'Signing in...' : 'Sign in'}</button>
-    </form>
-    {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}</div>}
-  </section>;
 
   return <section className="admin-branch-module admin-branch-pricing" aria-labelledby="branch-pricing-title">
     <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Branch Dashboard</button>
     <header className="admin-branch-module-header">
       <div><span className="admin-panel-eyebrow">BRANCH PRICING · {branch.code}</span><h1 id="branch-pricing-title">{branch.name}</h1><p>Propose selling prices for this branch. Pending proposals never change the live price.</p></div>
-      <button className="admin-retry-button" type="button" onClick={() => load(token)}><RefreshCw /> Refresh</button>
+      <button className="admin-retry-button" type="button" onClick={load}><RefreshCw /> Refresh</button>
     </header>
     {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}</div>}
     {status === 'loading' && <div className="admin-branch-feedback"><LoaderCircle className="admin-spin" /> Loading branch pricing...</div>}
