@@ -589,6 +589,19 @@ app.patch('/api/admin/menu/categories/:id/status', async (req, res) => {
     res.status(500).json({ message: 'Unable to update category status' });
   } finally { client.release() }
 });
+app.get('/api/kiosk/menu', async (req, res) => {
+  try {
+    const { rows: categories } = await query(
+      "SELECT mc.id,mc.name,mc.position FROM menu_categories mc WHERE mc.is_active=true AND EXISTS(SELECT 1 FROM menu_items mi WHERE mi.category_id=mc.id AND mi.is_active=true AND mi.available=true) ORDER BY mc.position ASC,mc.id ASC"
+    );
+    const { rows: items } = await query(
+      "SELECT mi.id,mi.name,mi.description,mi.category_id,mc.name category_name,mc.position category_position,mi.price,mi.image_url,mi.available,mi.bestseller,mi.vegetarian,mi.preparation_minutes,COALESCE(cg.customization_groups,'[]'::json) customization_groups FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id',micg.group_id,'name',mcg.name,'code',mcg.code,'type',mcg.group_type,'position',micg.position,'required',micg.is_required,'minSelections',micg.min_selections,'maxSelections',micg.max_selections,'options',COALESCE((SELECT json_agg(json_build_object('id',mco.id,'name',mco.name,'price',mco.price,'position',mco.position) ORDER BY mco.position ASC,mco.id ASC) FROM menu_customization_options mco WHERE mco.group_id=mcg.id AND mco.is_active=true),'[]'::json)) ORDER BY micg.position ASC,micg.group_id ASC) customization_groups FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=mi.id AND mcg.is_active=true) cg ON true WHERE mi.is_active=true AND mi.available=true AND mc.is_active=true ORDER BY mc.position ASC,mi.name ASC,mi.id ASC"
+    );
+    res.json({ categories, items });
+  } catch (e) {
+    res.status(500).json({ message: 'Unable to load kiosk menu' });
+  }
+});
 app.get('/api/menu', async (req, res) => { try { const { rows } = await query('SELECT mi.*,mc.name category FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id WHERE mi.available AND mi.is_active=true ORDER BY mc.position,mi.name'); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 app.get('/api/orders', async (req, res) => { try { const states = (req.query.status || '').split(',').filter(Boolean); const sql = `${orderQuery} ${states.length ? 'WHERE o.status=ANY($1)' : ''} GROUP BY o.id ORDER BY o.created_at DESC`; const { rows } = await query(sql, states.length ? [states] : []); res.json({ orders: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
