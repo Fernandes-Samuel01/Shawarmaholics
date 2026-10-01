@@ -58,7 +58,7 @@ function AdminLogin({ onAuthenticated }) {
         <button type="submit" className="admin-login-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in to Head Office'}</button>
       </form>
     </section>
-  </main>;</>;
+  </main></>;
 }
 
 export default function AdminPanel({ onMode }) {
