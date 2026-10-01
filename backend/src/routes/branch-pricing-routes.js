@@ -39,7 +39,13 @@ module.exports = function registerBranchPricingRoutes(app, { query, db, auth }) 
       );
       const { rows: [branch] } = await query('SELECT id,code,name,type,is_active FROM branches WHERE id=$1',[branchId]);
       if (!branch) return res.status(404).json({ message: 'Branch not found' });
-      res.json({ branch, items: rows });
+      const { rows: history } = await query(
+        `SELECT p.id,p.menu_item_id,p.proposed_price,p.status,p.proposed_at,p.reviewed_at,p.rejection_reason,mi.name menu_item_name
+         FROM branch_price_proposals p JOIN menu_items mi ON mi.id=p.menu_item_id
+         WHERE p.branch_id=$1 ORDER BY p.proposed_at DESC,p.id DESC LIMIT 100`,
+        [branchId]
+      );
+      res.json({ branch, items: rows, history });
     } catch (e) {
       res.status(500).json({ message: 'Unable to load branch pricing' });
     }
