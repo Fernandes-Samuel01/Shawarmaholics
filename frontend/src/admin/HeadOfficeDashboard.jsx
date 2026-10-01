@@ -4,11 +4,13 @@ import MasterCategories from './MasterCategories';
 import MasterMenu from './MasterMenu';
 import Customizations from './Customizations';
 import MasterPricing from './MasterPricing';
+import AdminOrders from './AdminOrders';
 
 const modules = [
   { key: 'categories', label: 'Master Categories', description: 'Manage global menu categories used across all Shawarmaholics branches.', icon: FolderTree },
   { key: 'menu', label: 'Master Menu', description: 'Manage centrally controlled menu items, descriptions and images.', icon: BookOpen },
   { key: 'pricing', label: 'Master Pricing', description: 'Manage official Shawarmaholics master prices.', icon: ReceiptText },
+  { key: 'orders', label: 'Orders Management', description: 'View and manage orders across all Shawarmaholics branches.', icon: ReceiptText },
   { key: 'customizations', label: 'Customizations', description: 'Manage sauces, extras and customization options.', icon: SlidersHorizontal }
 ];
 
@@ -19,6 +21,7 @@ export default function HeadOfficeDashboard({ adminToken }) {
   if (activeModule === 'menu') return <MasterMenu onBack={() => setActiveModule(null)} />;
   if (activeModule === 'customizations') return <Customizations onBack={() => setActiveModule(null)} />;
   if (activeModule === 'pricing') return <MasterPricing adminToken={adminToken} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'orders') return <AdminOrders adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-head-office-placeholder admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Head Office</button>
     <span className="admin-panel-eyebrow">HEAD OFFICE MODULE</span>
