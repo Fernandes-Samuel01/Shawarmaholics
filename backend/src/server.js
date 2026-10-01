@@ -615,6 +615,45 @@ app.get('/api/kiosk/menu', async (req, res) => {
 app.get('/api/menu', async (req, res) => { try { const { rows } = await query('SELECT mi.*,mc.name category FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id WHERE mi.available AND mi.is_active=true ORDER BY mc.position,mi.name'); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 app.get('/api/orders', async (req, res) => { try { const states = (req.query.status || '').split(',').filter(Boolean); const sql = `${orderQuery} ${states.length ? 'WHERE o.status=ANY($1)' : ''} GROUP BY o.id ORDER BY o.created_at DESC`; const { rows } = await query(sql, states.length ? [states] : []); res.json({ orders: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
+app.get('/api/admin/orders', auth(['admin']), async (req, res) => {
+  try {
+    const allowedStatuses = new Set(['awaiting_payment', 'confirmed', 'new', 'preparing', 'completed', 'cancelled']);
+    const requestedStatuses = String(req.query.status || '').split(',').map(value => value.trim()).filter(Boolean);
+    const statuses = requestedStatuses.filter(value => allowedStatuses.has(value));
+    if (requestedStatuses.length && statuses.length !== requestedStatuses.length) return res.status(400).json({ message: 'Invalid order status filter' });
+
+    const branchId = req.query.branchId == null || req.query.branchId === '' || req.query.branchId === 'ALL' ? null : Number(req.query.branchId);
+    if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
+
+    const search = String(req.query.search || '').trim();
+    const limitRaw = Number(req.query.limit || 200);
+    const limit = Number.isInteger(limitRaw) ? Math.min(Math.max(limitRaw, 1), 200) : 200;
+
+    const conditions = [];
+    const params = [];
+    if (statuses.length) { params.push(statuses); conditions.push('o.status=ANY($' + params.length + ')'); }
+    if (branchId !== null) { params.push(branchId); conditions.push('o.branch_id=$' + params.length); }
+    if (search) { params.push('%' + search + '%'); conditions.push('(o.order_number ILIKE $' + params.length + ' OR EXISTS (SELECT 1 FROM order_items soi WHERE soi.order_id=o.id AND soi.item_name ILIKE $' + params.length + '))'); }
+
+    params.push(limit);
+    const sql = `SELECT o.*,b.code branch_code,b.name branch_name,b.type branch_type,
+      COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations) ORDER BY oi.id ASC) FILTER(WHERE oi.id IS NOT NULL),'[]') items
+      FROM orders o
+      LEFT JOIN branches b ON b.id=o.branch_id
+      LEFT JOIN order_items oi ON oi.order_id=o.id
+      ${conditions.length ? 'WHERE ' + conditions.join(' AND ') : ''}
+      GROUP BY o.id,b.id
+      ORDER BY o.created_at DESC,o.id DESC
+      LIMIT $${params.length}`;
+
+    const { rows } = await query(sql, params);
+    res.json({ orders: rows });
+  } catch (e) {
+    res.status(500).json({ message: 'Unable to load admin orders' });
+  }
+});
+
+
 app.post('/api/orders', async (req, res) => {
   const client = await db.connect();
   try {
@@ -914,6 +953,7 @@ async function updateOrderStatus(req, res, source = 'orders') {
   } catch (e) { res.status(500).json({ message: e.message }) }
 }
 app.patch('/api/orders/:id/status', (req, res) => updateOrderStatus(req, res, 'orders'));
+app.patch('/api/admin/orders/:id/status', auth(['admin']), (req, res) => updateOrderStatus(req, res, 'orders'));
 app.get('/api/inventory', async (req, res) => { try { const { rows } = await query("SELECT *,CASE WHEN quantity<=0 THEN 'out' WHEN quantity<=low_stock_threshold THEN 'low' ELSE 'available' END status FROM inventory_items ORDER BY quantity"); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 app.get('/api/analytics/dashboard', auth(['admin', 'manager']), async (req, res) => { try { const { rows: [metrics] } = await query("SELECT COALESCE(SUM(total) FILTER(WHERE created_at::date=CURRENT_DATE),0) revenue,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) orders,COALESCE(ROUND(AVG(total) FILTER(WHERE created_at::date=CURRENT_DATE)),0) aov,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) customers FROM orders"); res.json({ metrics }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
