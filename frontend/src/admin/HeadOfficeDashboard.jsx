@@ -12,13 +12,13 @@ const modules = [
   { key: 'customizations', label: 'Customizations', description: 'Manage sauces, extras and customization options.', icon: SlidersHorizontal }
 ];
 
-export default function HeadOfficeDashboard() {
+export default function HeadOfficeDashboard({ adminToken }) {
   const [activeModule, setActiveModule] = useState(null);
   const selected = modules.find(module => module.key === activeModule);
   if (activeModule === 'categories') return <MasterCategories onBack={() => setActiveModule(null)} />;
   if (activeModule === 'menu') return <MasterMenu onBack={() => setActiveModule(null)} />;
   if (activeModule === 'customizations') return <Customizations onBack={() => setActiveModule(null)} />;
-  if (activeModule === 'pricing') return <MasterPricing onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'pricing') return <MasterPricing adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-head-office-placeholder admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Head Office</button>
     <span className="admin-panel-eyebrow">HEAD OFFICE MODULE</span>
