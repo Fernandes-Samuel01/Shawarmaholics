@@ -10,6 +10,8 @@ function Brand() {
 
 export default function AdminPanel({ onMode }) {
   const [activeSection, setActiveSection] = useState('head-office');
+  const [token] = useState(() => sessionStorage.getItem('shawarmaholics_admin_token') || '');
+
   return <main className="admin-panel">
     <aside className="admin-panel-sidebar">
       <Brand />
@@ -33,7 +35,7 @@ export default function AdminPanel({ onMode }) {
       </div>
     </aside>
     <section className="admin-panel-main">
-      {activeSection === 'head-office' ? <HeadOfficeDashboard /> : <BranchSelector />}
+      {activeSection === 'head-office' ? <HeadOfficeDashboard adminToken={token} /> : <BranchSelector adminToken={token} />}
     </section>
   </main>;
 }
