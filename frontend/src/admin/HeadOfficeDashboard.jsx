@@ -3,6 +3,7 @@ import { ArrowLeft, BarChart3, BookOpen, FolderTree, Landmark, ReceiptText, Sett
 import MasterCategories from './MasterCategories';
 import MasterMenu from './MasterMenu';
 import Customizations from './Customizations';
+import MasterPricing from './MasterPricing';
 
 const modules = [
   { key: 'categories', label: 'Master Categories', description: 'Manage global menu categories used across all Shawarmaholics branches.', icon: FolderTree },
@@ -17,6 +18,7 @@ export default function HeadOfficeDashboard() {
   if (activeModule === 'categories') return <MasterCategories onBack={() => setActiveModule(null)} />;
   if (activeModule === 'menu') return <MasterMenu onBack={() => setActiveModule(null)} />;
   if (activeModule === 'customizations') return <Customizations onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'pricing') return <MasterPricing onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-head-office-placeholder admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Head Office</button>
     <span className="admin-panel-eyebrow">HEAD OFFICE MODULE</span>
