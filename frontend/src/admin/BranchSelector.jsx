@@ -5,7 +5,7 @@ import BranchDashboard from './BranchDashboard';
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const api = path => fetch(`${API}${path}`).then(async response => { const data = await response.json().catch(() => ({})); if (!response.ok) throw new Error(data.message || 'Request failed'); return data });
 
-export default function BranchSelector() {
+export default function BranchSelector({ adminToken }) {
   const [view, setView] = useState('home'), [selectedBranch, setSelectedBranch] = useState(null), [branches, setBranches] = useState([]), [branchStatus, setBranchStatus] = useState('idle');
   const loadBranches = () => { setBranchStatus('loading'); api('/branches').then(data => { setBranches(data.branches || []); setBranchStatus('ready') }).catch(() => setBranchStatus('error')) };
   useEffect(() => { if (view === 'existing' && branchStatus === 'idle') loadBranches() }, [view, branchStatus]);
@@ -14,7 +14,7 @@ export default function BranchSelector() {
     <span className="admin-panel-eyebrow">CREATE NEW BRANCH</span><div className="admin-state-icon"><Plus /></div>
     <h1>Branch creation is coming soon</h1><p>The branch onboarding setup will be available in the next step.</p>
   </section>;
-  if (view === 'branch' && selectedBranch) return <BranchDashboard branch={selectedBranch} onBack={() => setView('existing')} />;
+  if (view === 'branch' && selectedBranch) return <BranchDashboard branch={selectedBranch} adminToken={adminToken} onBack={() => setView('existing')} />;
   if (view === 'existing') return <section className="admin-existing-branches" aria-labelledby="admin-existing-title">
     <button className="admin-back-button" type="button" onClick={() => setView('home')}><ArrowLeft /> Back to Branch Management</button>
     <div className="admin-branch-heading"><span className="admin-panel-eyebrow">EXISTING BRANCHES</span><h1 id="admin-existing-title">Your Branches</h1><p>Select a Shawarmaholics branch to view and manage its operations.</p></div>
