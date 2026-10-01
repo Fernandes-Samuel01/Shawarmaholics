@@ -2306,10 +2306,14 @@
 
 .admin-orders-content {
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 390px;
+    grid-template-columns: minmax(0, 1fr);
     gap: 18px;
     margin-top: 22px;
     align-items: start
+}
+
+.admin-orders-content.has-detail {
+    grid-template-columns: minmax(0, 1fr) 390px
 }
 
 .admin-orders-list-wrap,
@@ -2349,7 +2353,55 @@
 .admin-orders-table {
     width: 100%;
     border-collapse: collapse;
-    text-align: left
+    text-align: left;
+    table-layout: auto
+}
+
+.admin-orders-content.has-detail .admin-orders-table {
+    table-layout: fixed
+}
+
+.admin-orders-content.has-detail .admin-orders-table th,
+.admin-orders-content.has-detail .admin-orders-table td {
+    padding-left: 10px;
+    padding-right: 10px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(1),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(1) {
+    width: 72px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(2),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(2) {
+    width: 92px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(3),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(3) {
+    width: 76px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(4),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(4) {
+    width: 78px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(5),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(5) {
+    width: 92px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(6),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(6) {
+    width: 105px
+}
+
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(7),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(7),
+.admin-orders-content.has-detail .admin-orders-table th:nth-child(8),
+.admin-orders-content.has-detail .admin-orders-table td:nth-child(8) {
+    display: none
 }
 
 .admin-orders-table th {
@@ -2596,12 +2648,48 @@
 }
 
 @media(max-width:1050px) {
-    .admin-orders-content {
+    .admin-orders-content.has-detail {
         grid-template-columns: 1fr
     }
 
     .admin-order-detail {
         position: static
+    }
+
+    .admin-orders-content.has-detail .admin-orders-table {
+        table-layout: auto
+    }
+
+    .admin-orders-content.has-detail .admin-orders-table th,
+    .admin-orders-content.has-detail .admin-orders-table td {
+        padding-left: 15px;
+        padding-right: 15px
+    }
+
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(1),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(1),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(2),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(2),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(3),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(3),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(4),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(4),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(5),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(5),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(6),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(6),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(7),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(7),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(8),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(8) {
+        width: auto
+    }
+
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(7),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(7),
+    .admin-orders-content.has-detail .admin-orders-table th:nth-child(8),
+    .admin-orders-content.has-detail .admin-orders-table td:nth-child(8) {
+        display: table-cell
     }
 }
 
