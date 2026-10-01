@@ -38,7 +38,8 @@ function AdminLogin({ onAuthenticated }) {
     }
   };
 
-  return <main className="admin-login-page">
+  const styles = `.admin-login-page{min-height:100vh;display:grid;place-items:center;padding:40px;background:#f8f3eb;color:#2d2020;font-family:'DM Sans',sans-serif}.admin-login-card{width:min(440px,100%);padding:38px;border:1px solid #eadfd2;border-radius:22px;background:#fffdfa;box-shadow:0 18px 45px #35101d12}.admin-login-card .admin-brand{margin-bottom:38px}.admin-login-card h1{margin:10px 0 8px;color:#79162e;font-size:38px;letter-spacing:-.05em}.admin-login-card>p{margin:0 0 26px;color:#887a70;font-size:13px;line-height:1.6}.admin-login-form{display:grid;gap:16px}.admin-login-form label{display:grid;gap:7px}.admin-login-form label span{color:#2d2020;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase}.admin-login-form input{width:100%;box-sizing:border-box;padding:12px 13px;border:1px solid #eadfd2;border-radius:10px;background:#fff;color:#2d2020;font:inherit;font-size:13px}.admin-login-form input:focus{border-color:#c49132;outline:3px solid #c4913230}.admin-login-error{padding:11px 12px;border:1px solid #ead1ca;border-radius:10px;background:#fdf1ee;color:#8b3d2d;font-size:12px;line-height:1.45}.admin-login-submit{min-height:44px;border:0;border-radius:10px;background:#79162e;color:#fff;font:inherit;font-size:12px;font-weight:800;cursor:pointer}.admin-login-submit:hover{background:#511020}.admin-login-submit:disabled{cursor:wait;opacity:.65}`;
+  return <><style>{styles}</style><main className="admin-login-page">
     <section className="admin-login-card">
       <Brand />
       <span className="admin-panel-eyebrow">HEAD OFFICE</span>
@@ -57,7 +58,7 @@ function AdminLogin({ onAuthenticated }) {
         <button type="submit" className="admin-login-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in to Head Office'}</button>
       </form>
     </section>
-  </main>;
+  </main>;</>;
 }
 
 export default function AdminPanel({ onMode }) {
