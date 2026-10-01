@@ -98,7 +98,7 @@ export default function AdminOrders({ adminToken, onBack }) {
 
     {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}</div>}
 
-    {adminToken && <section className="admin-orders-content">
+    {adminToken && <section className={`admin-orders-content${selected ? ' has-detail' : ''}`}>
       <div className="admin-orders-list-wrap">
         <div className="admin-orders-list-heading"><div><span className="admin-panel-eyebrow">ORDER QUEUE</span><h2>{orders.length} {orders.length === 1 ? 'order' : 'orders'}</h2></div><small>Newest first</small></div>
 
