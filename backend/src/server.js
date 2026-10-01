@@ -17,8 +17,6 @@ const query = (text, params = []) => db.query(text, params);
 require('./kitchen-routes')(app, query, io);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
-require('./routes/branch-pricing-routes')(app, { query, db, auth });
-
 const auth = (roles = []) => (req, res, next) => {
   try {
     const user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), process.env.JWT_SECRET);
@@ -26,6 +24,7 @@ const auth = (roles = []) => (req, res, next) => {
     req.user = user; next();
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
+require('./routes/branch-pricing-routes')(app, { query, db, auth });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
