@@ -15,9 +15,10 @@ const branchScope = (req, branchId) => {
 };
 
 module.exports = function registerBranchPricingRoutes(app, { query, db, auth }) {
-  app.get('/api/branches/:branchId/pricing', async (req, res) => {
+  app.get('/api/branches/:branchId/pricing', auth(['admin','manager']), async (req, res) => {
     const branchId = parseBranchId(req.params.branchId);
     if (!branchId) return res.status(400).json({ message: 'Invalid branch ID' });
+    if (!branchScope(req, branchId)) return res.status(403).json({ message: 'Not authorized for this branch' });
     try {
       const { rows } = await query(
         `SELECT mi.id menu_item_id,mi.name,mi.price master_price,bmp.effective_price,
@@ -44,11 +45,12 @@ module.exports = function registerBranchPricingRoutes(app, { query, db, auth }) 
     }
   });
 
-  app.post('/api/branches/:branchId/pricing/proposals', async (req, res) => {
+  app.post('/api/branches/:branchId/pricing/proposals', auth(['admin','manager']), async (req, res) => {
     const branchId = parseBranchId(req.params.branchId);
     const menuItemId = Number(req.body?.menuItemId);
     const proposedPrice = parsePrice(req.body?.proposedPrice);
     if (!branchId) return res.status(400).json({ message: 'Invalid branch ID' });
+    if (!branchScope(req, branchId)) return res.status(403).json({ message: 'Not authorized for this branch' });
     if (!Number.isInteger(menuItemId) || menuItemId < 1) return res.status(400).json({ message: 'Invalid menu item ID' });
     if (proposedPrice == null) return res.status(400).json({ message: 'Proposed price must be a non-negative number' });
 
