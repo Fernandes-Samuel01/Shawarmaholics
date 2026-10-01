@@ -4,13 +4,67 @@ import BranchSelector from './BranchSelector';
 import HeadOfficeDashboard from './HeadOfficeDashboard';
 import './admin.css';
 
+const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+
 function Brand() {
   return <div className="admin-brand"><span>SHAWARMA</span><b>HOLICS</b><small>WRAPS. LOADED. OBSESSED.</small></div>;
 }
 
+function AdminLogin({ onAuthenticated }) {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const submit = async event => {
+    event.preventDefault();
+    setLoading(true);
+    setError('');
+    try {
+      const response = await fetch(API + '/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim(), password })
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) throw new Error(data.message || 'Unable to sign in');
+      if (data.user?.role !== 'admin') throw new Error('This account does not have Head Office admin access.');
+      sessionStorage.setItem('shawarmaholics_admin_token', data.token);
+      onAuthenticated(data.token);
+    } catch (err) {
+      setError(err.message || 'Unable to sign in');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return <main className="admin-login-page">
+    <section className="admin-login-card">
+      <Brand />
+      <span className="admin-panel-eyebrow">HEAD OFFICE</span>
+      <h1>Admin sign in</h1>
+      <p>Sign in once to manage Shawarmaholics across all branches.</p>
+      <form onSubmit={submit} className="admin-login-form">
+        <label>
+          <span>Email</span>
+          <input type="email" autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} placeholder="admin@example.com" required />
+        </label>
+        <label>
+          <span>Password</span>
+          <input type="password" autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} placeholder="Enter your password" required />
+        </label>
+        {error && <div className="admin-login-error" role="alert">{error}</div>}
+        <button type="submit" className="admin-login-submit" disabled={loading}>{loading ? 'Signing in...' : 'Sign in to Head Office'}</button>
+      </form>
+    </section>
+  </main>;
+}
+
 export default function AdminPanel({ onMode }) {
   const [activeSection, setActiveSection] = useState('head-office');
-  const [token] = useState(() => sessionStorage.getItem('shawarmaholics_admin_token') || '');
+  const [token, setToken] = useState(() => sessionStorage.getItem('shawarmaholics_admin_token') || '');
+
+  if (!token) return <AdminLogin onAuthenticated={setToken} />;
 
   return <main className="admin-panel">
     <aside className="admin-panel-sidebar">
