@@ -29,13 +29,15 @@ function Brand({ light = false }) { return <div className={'brand ' + (light ? '
 function Pill({ children, tone = '' }) { return <span className={'pill ' + tone}>{children}</span> }
 function Kiosk() {
     const { language, setLanguage, t } = useI18n();
-    const [screen, setScreen] = useState('welcome'), [type, setType] = useState('EAT HERE'), [menu, setMenu] = useState([]), [categories, setCategories] = useState([]), [cat, setCat] = useState('Featured'), [menuLoading, setMenuLoading] = useState(true), [menuError, setMenuError] = useState(''), [cart, setCart] = useState([]), [chosen, setChosen] = useState(null), [qty, setQty] = useState(1), [selections, setSelections] = useState({}), [specialRequest, setSpecialRequest] = useState(''), [submitting, setSubmitting] = useState(false), [order, setOrder] = useState(null), [orderTypeOpen, setOrderTypeOpen] = useState(false), [paymentMethod, setPaymentMethod] = useState(null), [paymentError, setPaymentError] = useState('');
+    const kioskBranchId = new URLSearchParams(window.location.search).get('branchId');
+    const [screen, setScreen] = useState('welcome'), [type, setType] = useState('EAT HERE'), [menu, setMenu] = useState([]), [categories, setCategories] = useState([]), [branch, setBranch] = useState(null), [cat, setCat] = useState('Featured'), [menuLoading, setMenuLoading] = useState(true), [menuError, setMenuError] = useState(''), [cart, setCart] = useState([]), [chosen, setChosen] = useState(null), [qty, setQty] = useState(1), [selections, setSelections] = useState({}), [specialRequest, setSpecialRequest] = useState(''), [submitting, setSubmitting] = useState(false), [order, setOrder] = useState(null), [orderTypeOpen, setOrderTypeOpen] = useState(false), [paymentMethod, setPaymentMethod] = useState(null), [paymentError, setPaymentError] = useState('');
 
     useEffect(() => {
         setMenuLoading(true);
         setMenuError('');
-        api('/kiosk/menu')
+        api('/kiosk/menu' + (kioskBranchId ? `?branchId=${encodeURIComponent(kioskBranchId)}` : ''))
             .then(result => {
+                setBranch(result.branch || null);
                 setCategories(result.categories || []);
                 setMenu((result.items || []).map(item => ({
                     ...item,
@@ -46,7 +48,7 @@ function Kiosk() {
             })
             .catch(() => setMenuError('Unable to load the menu. Please try again.'))
             .finally(() => setMenuLoading(false));
-    }, []);
+    }, [kioskBranchId]);
 
     const selectedGroups = (chosen?.customizationGroups || []).map(group => ({
         ...group,
@@ -125,6 +127,7 @@ function Kiosk() {
         try {
             const payload = {
                 orderType: type,
+                branchId: kioskBranchId ? Number(kioskBranchId) : undefined,
                 paymentMethod: method,
                 paymentStatus,
                 orderStatus,
@@ -172,7 +175,7 @@ function Kiosk() {
     const visibleMenu = menu.filter(item => cat === 'Featured' || item.category_name === cat);
     const shell = (content, showActions = true) => <main className="kiosk"><header><Brand />{showActions && <div className="header-actions"><div className="order-type-control"><button className="text-btn" onClick={() => setOrderTypeOpen(open => !open)} aria-expanded={orderTypeOpen}>{typeLabel} · {t.change}</button>{orderTypeOpen && <div className="order-type-picker" role="menu">{[[t.eat, 'EAT HERE'], [t.parcel, 'TAKE PARCEL']].map(([label, value]) => <button className={type === value ? 'selected' : ''} onClick={() => { setType(value); setOrderTypeOpen(false) }} role="menuitemradio" aria-checked={type === value} key={value}>{label}<Check /></button>)}</div>}</div><button className="cart-btn" onClick={() => setScreen('cart')}><ShoppingBag size={20} /> {t.cart} <b>{cart.length}</b></button></div>}</header>{content}</main>;
 
-    if (screen === 'welcome') return <main className={'welcome language-' + language}><div className="orb orb1" /><div className="orb orb2" /><div className="welcome-top"><Brand light /></div><div className="welcome-center"><Pill>{t.location}</Pill><h1>{t.welcomeTitle[0]}<br /><em>{t.welcomeTitle[1]}</em></h1><p>{t.welcomeSubtitle}</p><button className="primary huge" onClick={() => setScreen('type')}>{t.startOrder} <ArrowRight /></button><div className="languages" aria-label="Choose language">{languages.map(x => <button onClick={() => setLanguage(x.code)} className={language === x.code ? 'selected' : ''} key={x.code} aria-pressed={language === x.code}><b>{x.short}</b><small>{x.label}</small></button>)}</div></div></main>;
+    if (screen === 'welcome') return <main className={'welcome language-' + language}><div className="orb orb1" /><div className="orb orb2" /><div className="welcome-top"><Brand light /></div><div className="welcome-center"><Pill>{branch ? `${branch.name} · ${branch.code}` : t.location}</Pill><h1>{t.welcomeTitle[0]}<br /><em>{t.welcomeTitle[1]}</em></h1><p>{t.welcomeSubtitle}</p><button className="primary huge" onClick={() => setScreen('type')}>{t.startOrder} <ArrowRight /></button><div className="languages" aria-label="Choose language">{languages.map(x => <button onClick={() => setLanguage(x.code)} className={language === x.code ? 'selected' : ''} key={x.code} aria-pressed={language === x.code}><b>{x.short}</b><small>{x.label}</small></button>)}</div></div></main>;
 
     if (screen === 'type') return shell(<section className="type-screen"><button className="back" onClick={() => setScreen('welcome')}><ArrowLeft /> {t.back}</button><h1>{t.how}</h1><p>{t.choose}</p><div className="type-cards">{[[t.eat, Utensils, t.eatDesc, 'EAT HERE'], [t.parcel, ShoppingBag, t.parcelDesc, 'TAKE PARCEL']].map(([label, I, desc, value]) => <button onClick={() => { setType(value); setScreen('menu') }} className="type-card" key={value}><I /><h2>{label}</h2><p>{desc}</p><span>{t.chooseAction} <ArrowRight /></span></button>)}</div></section>, false);
 
