@@ -3,9 +3,9 @@ import { ArrowLeft, ClipboardList, PackagePlus, RefreshCw, Search } from 'lucide
 import './inventory.css';
 
 const API=import.meta.env.VITE_API_URL||'http://localhost:4000/api';
-async function request(path,token,options={}){const response=await fetch(API+path,{...options,headers:{'Content-Type':'application/json',...(token?{Authorization:\`Bearer \${token}\`}:{}),...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.message||'Request failed');return data;}
+async function request(path,token,options={}){const response=await fetch(API+path,{...options,headers:{'Content-Type':'application/json',...(token?{Authorization:`Bearer ${token}`}:{}),...(options.headers||{})}});const data=await response.json().catch(()=>({}));if(!response.ok)throw new Error(data.message||'Request failed');return data;}
 const movementLabels={RECEIPT:'Receive stock',ADJUSTMENT_IN:'Adjustment in',ADJUSTMENT_OUT:'Adjustment out',WASTE:'Waste',RETURN:'Return'};
-const displayQty=v=>Number(v).toFixed(3).replace(/\\.000$/,'');
+const displayQty=v=>Number(v).toFixed(3).replace(/\.000$/,'');
 
 export default function InventoryManagement({adminToken,onBack}){
  const [branches,setBranches]=useState([]),[items,setItems]=useState([]),[stock,setStock]=useState([]),[movements,setMovements]=useState([]);
