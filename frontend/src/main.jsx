@@ -55,8 +55,8 @@ function Kiosk() {
     const customizationTotal = selectedGroups.reduce((sum, group) => sum + group.selectedOptions.reduce((groupSum, option) => groupSum + Number(option.price || 0), 0), 0);
     const pricing = {
         baseTotal: Number(chosen?.price || 0) * qty,
-        customizationTotal,
-        finalTotal: Number(chosen?.price || 0) * qty + customizationTotal
+        customizationTotal: customizationTotal * qty,
+        finalTotal: (Number(chosen?.price || 0) + customizationTotal) * qty
     };
     const total = cart.reduce((sum, item) => sum + Number(item.finalTotal || 0), 0);
 
@@ -108,12 +108,16 @@ function Kiosk() {
         setScreen('menu');
     };
 
-    const repriceCartItem = (item, quantity) => ({
-        ...item,
-        qty: quantity,
-        baseTotal: Number(item.basePrice || 0) * quantity,
-        finalTotal: Number(item.basePrice || 0) * quantity + Number(item.customizationTotal || 0)
-    });
+    const repriceCartItem = (item, quantity) => {
+        const customizationPerUnit = Number(item.customizationTotal || 0) / Number(item.qty || 1);
+        return {
+            ...item,
+            qty: quantity,
+            baseTotal: Number(item.basePrice || 0) * quantity,
+            customizationTotal: customizationPerUnit * quantity,
+            finalTotal: (Number(item.basePrice || 0) + customizationPerUnit) * quantity
+        };
+    };
 
     const createOrder = async (method, paymentStatus, orderStatus) => {
         setSubmitting(true);
@@ -126,25 +130,18 @@ function Kiosk() {
                 orderStatus,
                 items: cart.map(item => ({
                     menuItemId: item.id,
-                    name: item.name,
                     quantity: item.qty,
-                    unitPrice: item.basePrice,
                     customizations: {
-                        basePrice: item.basePrice,
-                        baseTotal: item.baseTotal,
-                        customizationTotal: item.customizationTotal,
-                        sauce: item.sauce,
-                        sauceTotal: Number(item.sauce?.price || 0),
-                        extras: item.extras,
-                        extrasTotal: item.extras.reduce((sum, extra) => sum + Number(extra.price || 0), 0),
-                        groups: item.customizationGroups,
-                        finalTotal: item.finalTotal,
-                        specialRequest: item.specialRequest
+                        groups: (item.customizationGroups || []).map(group => ({
+                            groupId: group.id,
+                            optionIds: group.selectedOptions.map(option => option.id)
+                        })),
+                        specialRequest: item.specialRequest || ''
                     }
                 }))
             };
             const result = await api('/orders', { method: 'POST', body: JSON.stringify(payload) });
-            setOrder({ ...result.order, items: cart, total, payment_method: method, payment_status: paymentStatus, status: orderStatus });
+            setOrder({ ...result.order, items: cart, total: Number(result.order.total), payment_method: method, payment_status: paymentStatus, status: orderStatus });
             return true;
         } catch {
             setPaymentError('Unable to create your order. Please try again.');
