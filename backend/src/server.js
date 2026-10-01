@@ -606,7 +606,7 @@ app.get('/api/kiosk/menu', async (req, res) => {
     );
     const { rows: items } = await query(
       "SELECT mi.id,mi.name,mi.description,mi.category_id,mc.name category_name,mc.position category_position,COALESCE(bmp.effective_price,mi.price) price,mi.image_url,mi.available,mi.bestseller,mi.vegetarian,mi.preparation_minutes,COALESCE(cg.customization_groups,'[]'::json) customization_groups FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id LEFT JOIN branch_menu_prices bmp ON bmp.menu_item_id=mi.id AND bmp.branch_id=$1 LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id',micg.group_id,'name',mcg.name,'code',mcg.code,'type',mcg.group_type,'position',micg.position,'required',micg.is_required,'minSelections',micg.min_selections,'maxSelections',micg.max_selections,'options',COALESCE((SELECT json_agg(json_build_object('id',mco.id,'name',mco.name,'price',mco.price,'position',mco.position) ORDER BY mco.position ASC,mco.id ASC) FROM menu_customization_options mco WHERE mco.group_id=mcg.id AND mco.is_active=true),'[]'::json)) ORDER BY micg.position ASC,micg.group_id ASC) customization_groups FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=mi.id AND mcg.is_active=true) cg ON true WHERE mi.is_active=true AND mi.available=true AND mc.is_active=true ORDER BY mc.position ASC,mi.name ASC,mi.id ASC"
-    , branchId === null ? [] : [branchId]
+    , [branchId]
     );
     res.json({ branch, categories, items });
   } catch (e) {
