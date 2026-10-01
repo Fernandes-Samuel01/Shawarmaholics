@@ -592,13 +592,23 @@ app.patch('/api/admin/menu/categories/:id/status', async (req, res) => {
 });
 app.get('/api/kiosk/menu', async (req, res) => {
   try {
+    const branchId = req.query.branchId == null || req.query.branchId === '' ? null : Number(req.query.branchId);
+    if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
+    let branch = null;
+    if (branchId !== null) {
+      const { rows } = await query('SELECT id,code,name,type,city,state,timezone,is_active FROM branches WHERE id=$1', [branchId]);
+      if (!rows[0]) return res.status(404).json({ message: 'Branch not found' });
+      if (!rows[0].is_active) return res.status(400).json({ message: 'Branch is inactive' });
+      branch = rows[0];
+    }
     const { rows: categories } = await query(
       "SELECT mc.id,mc.name,mc.position FROM menu_categories mc WHERE mc.is_active=true AND EXISTS(SELECT 1 FROM menu_items mi WHERE mi.category_id=mc.id AND mi.is_active=true AND mi.available=true) ORDER BY mc.position ASC,mc.id ASC"
     );
     const { rows: items } = await query(
-      "SELECT mi.id,mi.name,mi.description,mi.category_id,mc.name category_name,mc.position category_position,mi.price,mi.image_url,mi.available,mi.bestseller,mi.vegetarian,mi.preparation_minutes,COALESCE(cg.customization_groups,'[]'::json) customization_groups FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id',micg.group_id,'name',mcg.name,'code',mcg.code,'type',mcg.group_type,'position',micg.position,'required',micg.is_required,'minSelections',micg.min_selections,'maxSelections',micg.max_selections,'options',COALESCE((SELECT json_agg(json_build_object('id',mco.id,'name',mco.name,'price',mco.price,'position',mco.position) ORDER BY mco.position ASC,mco.id ASC) FROM menu_customization_options mco WHERE mco.group_id=mcg.id AND mco.is_active=true),'[]'::json)) ORDER BY micg.position ASC,micg.group_id ASC) customization_groups FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=mi.id AND mcg.is_active=true) cg ON true WHERE mi.is_active=true AND mi.available=true AND mc.is_active=true ORDER BY mc.position ASC,mi.name ASC,mi.id ASC"
+      "SELECT mi.id,mi.name,mi.description,mi.category_id,mc.name category_name,mc.position category_position,COALESCE(bmp.effective_price,mi.price) price,mi.image_url,mi.available,mi.bestseller,mi.vegetarian,mi.preparation_minutes,COALESCE(cg.customization_groups,'[]'::json) customization_groups FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id LEFT JOIN branch_menu_prices bmp ON bmp.menu_item_id=mi.id AND bmp.branch_id=$1 LEFT JOIN LATERAL (SELECT json_agg(json_build_object('id',micg.group_id,'name',mcg.name,'code',mcg.code,'type',mcg.group_type,'position',micg.position,'required',micg.is_required,'minSelections',micg.min_selections,'maxSelections',micg.max_selections,'options',COALESCE((SELECT json_agg(json_build_object('id',mco.id,'name',mco.name,'price',mco.price,'position',mco.position) ORDER BY mco.position ASC,mco.id ASC) FROM menu_customization_options mco WHERE mco.group_id=mcg.id AND mco.is_active=true),'[]'::json)) ORDER BY micg.position ASC,micg.group_id ASC) customization_groups FROM menu_item_customization_groups micg JOIN menu_customization_groups mcg ON mcg.id=micg.group_id WHERE micg.menu_item_id=mi.id AND mcg.is_active=true) cg ON true WHERE mi.is_active=true AND mi.available=true AND mc.is_active=true ORDER BY mc.position ASC,mi.name ASC,mi.id ASC"
+    , branchId === null ? [] : [branchId]
     );
-    res.json({ categories, items });
+    res.json({ branch, categories, items });
   } catch (e) {
     res.status(500).json({ message: 'Unable to load kiosk menu' });
   }
@@ -611,12 +621,19 @@ app.post('/api/orders', async (req, res) => {
   try {
     const body = req.body || {};
     const { orderType, items = [], paymentMethod, paymentStatus = 'pending', orderStatus = 'awaiting_payment' } = body;
+    const branchId = body.branchId == null || body.branchId === '' ? null : Number(body.branchId);
+    if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
     if (!['EAT HERE', 'TAKE PARCEL'].includes(orderType)) return res.status(400).json({ message: 'Invalid order type' });
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ message: 'Items required' });
     if (!['upi', 'cash'].includes(paymentMethod) || !['pending', 'paid'].includes(paymentStatus) || !['awaiting_payment', 'confirmed'].includes(orderStatus)) return res.status(400).json({ message: 'Invalid payment or order status' });
     if (items.length > 50) return res.status(400).json({ message: 'Too many order items' });
 
     await client.query('BEGIN');
+    if (branchId !== null) {
+      const { rows: [branch] } = await client.query('SELECT id,is_active FROM branches WHERE id=$1 FOR UPDATE', [branchId]);
+      if (!branch) { await client.query('ROLLBACK'); return res.status(404).json({ message: 'Branch not found' }); }
+      if (!branch.is_active) { await client.query('ROLLBACK'); return res.status(400).json({ message: 'Branch is inactive' }); }
+    }
 
     const normalizedItems = [];
     let totalCents = 0n;
@@ -646,8 +663,8 @@ app.post('/api/orders', async (req, res) => {
       }
 
       const { rows: [menuItem] } = await client.query(
-        'SELECT id,name,price,is_active,available FROM menu_items WHERE id=$1 FOR UPDATE',
-        [menuItemId]
+        'SELECT mi.id,mi.name,COALESCE(bmp.effective_price,mi.price) price,mi.is_active,mi.available FROM menu_items mi LEFT JOIN branch_menu_prices bmp ON bmp.menu_item_id=mi.id AND bmp.branch_id=$2 WHERE mi.id=$1 FOR UPDATE',
+        [menuItemId, branchId]
       );
 
       if (!menuItem) {
@@ -841,8 +858,8 @@ app.post('/api/orders', async (req, res) => {
 
     const total = Number(totalCents) / 100;
     const { rows: [order] } = await client.query(
-      "INSERT INTO orders(order_number,order_type,total,payment_method,payment_status,status,received_at,target_prep_seconds) VALUES ('A-'||nextval('order_number_seq'),$1,$2,$3,$4,$5,NOW(),480) RETURNING *",
-      [orderType, total.toFixed(2), paymentMethod, paymentStatus, orderStatus]
+      "INSERT INTO orders(order_number,branch_id,order_type,total,payment_method,payment_status,status,received_at,target_prep_seconds) VALUES ('A-'||nextval('order_number_seq'),$1,$2,$3,$4,$5,$6,NOW(),480) RETURNING *",
+      [branchId, orderType, total.toFixed(2), paymentMethod, paymentStatus, orderStatus]
     );
 
     const storedItems = [];
