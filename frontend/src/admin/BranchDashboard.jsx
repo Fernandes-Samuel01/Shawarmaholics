@@ -19,10 +19,10 @@ const management = [
   { key: 'settings', label: 'Branch Settings', icon: Settings, description: 'View branch information and operational settings.' }
 ];
 
-export default function BranchDashboard({ branch, onBack }) {
+export default function BranchDashboard({ branch, adminToken, onBack }) {
   const [activeModule, setActiveModule] = useState(null);
   const selected = management.find(item => item.key === activeModule);
-  if (activeModule === 'pricing') return <BranchPricing branch={branch} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'pricing') return <BranchPricing branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-branch-module admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Branch Dashboard</button>
     <span className="admin-panel-eyebrow">{selected.label.toUpperCase()}</span>
