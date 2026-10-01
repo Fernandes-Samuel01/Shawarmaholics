@@ -25,6 +25,7 @@ const auth = (roles = []) => (req, res, next) => {
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
 require('./routes/branch-pricing-routes')(app, { query, db, auth });
+require('./routes/inventory-routes')(app, { query, db, auth });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
