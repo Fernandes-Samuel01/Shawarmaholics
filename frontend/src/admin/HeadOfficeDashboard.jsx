@@ -20,7 +20,7 @@ const modules = [
   { key: 'staff', label: 'Staff Management', description: 'Manage staff roles, primary locations and active profiles.', icon: UserRound },
   { key: 'analytics', label: 'Analytics', description: 'Review consolidated business performance across operating locations.', icon: BarChart3 },
   { key: 'reports', label: 'Reports', description: 'Generate structured operational reports and export them as CSV.', icon: FileText },
-  { key: 'settings', label: 'Settings', description: 'Configure global business, kiosk, order, KDS, inventory and notification behavior.', icon: SlidersHorizontal },
+  { key: 'settings', label: 'Settings', description: 'Configure this Head Office kiosk, KDS and operational behavior.', icon: SlidersHorizontal },
   { key: 'customizations', label: 'Customizations', description: 'Manage sauces, extras and customization options.', icon: SlidersHorizontal }
 ];
 
@@ -36,7 +36,7 @@ export default function HeadOfficeDashboard({ adminToken }) {
   if (activeModule === 'staff') return <StaffManagement adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'analytics') return <AnalyticsDashboard adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'reports') return <ReportsDashboard adminToken={adminToken} onBack={() => setActiveModule(null)} />;
-  if (activeModule === 'settings') return <SettingsDashboard adminToken={adminToken} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'settings') return <SettingsDashboard adminToken={adminToken} locationType="HEAD_OFFICE" locationName="Head Office" onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-head-office-placeholder admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Head Office</button>
     <span className="admin-panel-eyebrow">HEAD OFFICE MODULE</span>
