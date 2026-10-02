@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, Check, Edit3, Plus, Search, UserCheck, UserRound, UserX, X } from 'lucide-react';
+import { ArrowLeft, CalendarDays, Check, Clock3, Edit3, Eye, Plus, Search, UserCheck, UserRound, UserX, X } from 'lucide-react';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const ROLE_LABELS = {
@@ -25,8 +25,31 @@ const api = (path, token, opts = {}) => fetch(API + path, {
 
 const emptyForm = { name: '', phone: '', email: '', role: 'STAFF', branch_id: 'HEAD_OFFICE', is_active: true };
 
+const monthStart = () => {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+};
+const today = () => new Date().toISOString().slice(0, 10);
+
 function roleLabel(role) {
   return ROLE_LABELS[role] || role;
+}
+
+function formatDuration(seconds) {
+  const totalMinutes = Math.max(0, Math.floor(Number(seconds || 0) / 60));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+function formatTime(value) {
+  if (!value) return '—';
+  return new Date(value).toLocaleTimeString('en-IN', { timeZone: 'Asia/Kolkata', hour: '2-digit', minute: '2-digit', hour12: true });
+}
+
+function formatDate(value) {
+  if (!value) return '—';
+  return new Date(`${value}T00:00:00+05:30`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function StaffManagement({ adminToken, onBack }) {
@@ -43,6 +66,12 @@ export default function StaffManagement({ adminToken, onBack }) {
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  const [attendanceStaff, setAttendanceStaff] = useState(null);
+  const [attendanceData, setAttendanceData] = useState(null);
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [attendanceError, setAttendanceError] = useState('');
+  const [attendanceFrom, setAttendanceFrom] = useState(monthStart);
+  const [attendanceTo, setAttendanceTo] = useState(today);
 
   const load = async () => {
     setLoading(true);
@@ -151,6 +180,39 @@ export default function StaffManagement({ adminToken, onBack }) {
     }
   };
 
+  const openAttendance = async person => {
+    setAttendanceStaff(person);
+    setAttendanceData(null);
+    setAttendanceError('');
+    setAttendanceFrom(monthStart());
+    setAttendanceTo(today());
+    setAttendanceLoading(true);
+    try {
+      const data = await api(`/admin/staff/${person.id}/attendance?from=${monthStart()}&to=${today()}`, adminToken);
+      setAttendanceData(data);
+    } catch (err) {
+      setAttendanceError(err.message || 'Unable to load attendance');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
+  const refreshAttendance = async event => {
+    event?.preventDefault();
+    if (!attendanceStaff) return;
+    setAttendanceLoading(true);
+    setAttendanceError('');
+    try {
+      if (attendanceFrom > attendanceTo) throw new Error('Start date cannot be after end date');
+      const data = await api(`/admin/staff/${attendanceStaff.id}/attendance?from=${attendanceFrom}&to=${attendanceTo}`, adminToken);
+      setAttendanceData(data);
+    } catch (err) {
+      setAttendanceError(err.message || 'Unable to load attendance');
+    } finally {
+      setAttendanceLoading(false);
+    }
+  };
+
   return <section className="admin-staff-page" aria-labelledby="staff-management-title">
     <div className="admin-staff-header">
       <div>
@@ -205,7 +267,11 @@ export default function StaffManagement({ adminToken, onBack }) {
             <td data-label="Primary location"><b>{person.branch_name}</b>{person.branch_code && <small>{person.branch_code}</small>}</td>
             <td data-label="Contact"><span>{person.phone}</span><small>{person.email || 'No email added'}</small></td>
             <td data-label="Status"><span className={'admin-staff-status ' + (person.is_active ? 'active' : 'inactive')}><i />{person.is_active ? 'Active' : 'Inactive'}</span></td>
-            <td data-label="Actions"><div className="admin-staff-actions"><button type="button" title="Edit staff" onClick={() => openEdit(person)}><Edit3 /> Edit</button><button type="button" className={person.is_active ? 'danger' : 'restore'} onClick={() => toggleStatus(person)}>{person.is_active ? <UserX /> : <UserCheck />}{person.is_active ? 'Deactivate' : 'Activate'}</button></div></td>
+            <td data-label="Actions"><div className="admin-staff-actions">
+              <button type="button" title="View attendance" onClick={() => openAttendance(person)}><Eye /> Attendance</button>
+              <button type="button" title="Edit staff" onClick={() => openEdit(person)}><Edit3 /> Edit</button>
+              <button type="button" className={person.is_active ? 'danger' : 'restore'} onClick={() => toggleStatus(person)}>{person.is_active ? <UserX /> : <UserCheck />}{person.is_active ? 'Deactivate' : 'Activate'}</button>
+            </div></td>
           </tr>)}</tbody>
         </table>}
     </div>
@@ -225,6 +291,43 @@ export default function StaffManagement({ adminToken, onBack }) {
           <p className="admin-staff-form-note">A staff profile has one primary operating location. Branch-specific management screens and permissions will be connected in the later branch/manager phase.</p>
           <div className="admin-staff-modal-actions"><button type="button" className="admin-secondary-action" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="admin-primary-action" disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Staff'}</button></div>
         </form>
+      </section>
+    </div>}
+
+    {attendanceStaff && <div className="admin-staff-modal-backdrop" role="presentation">
+      <section className="admin-staff-modal admin-staff-attendance-modal" role="dialog" aria-modal="true" aria-labelledby="staff-attendance-title">
+        <header>
+          <div><span className="admin-panel-eyebrow">ATTENDANCE HISTORY</span><h2 id="staff-attendance-title">{attendanceStaff.name}</h2><p>{roleLabel(attendanceStaff.role)} · {attendanceStaff.branch_name}</p></div>
+          <button type="button" className="admin-staff-close" onClick={() => { setAttendanceStaff(null); setAttendanceData(null) }} aria-label="Close"><X /></button>
+        </header>
+
+        <form className="admin-staff-attendance-filters" onSubmit={refreshAttendance}>
+          <label><span>FROM</span><input type="date" value={attendanceFrom} onChange={event => setAttendanceFrom(event.target.value)} /></label>
+          <label><span>TO</span><input type="date" value={attendanceTo} onChange={event => setAttendanceTo(event.target.value)} /></label>
+          <button type="submit" className="admin-primary-action" disabled={attendanceLoading}><CalendarDays /> {attendanceLoading ? 'Loading...' : 'View'}</button>
+        </form>
+
+        {attendanceError && <div className="admin-staff-error" role="alert">{attendanceError}</div>}
+
+        {attendanceLoading && !attendanceData ? <div className="admin-staff-empty"><Clock3 /><h2>Loading attendance...</h2><p>Reading punch-in and punch-out records.</p></div>
+          : attendanceData && <>
+            <div className="admin-staff-attendance-summary">
+              <article><span>DAYS PRESENT</span><strong>{attendanceData.summary.days_present}</strong><small>Attendance records</small></article>
+              <article><span>COMPLETED SHIFTS</span><strong>{attendanceData.summary.completed_days}</strong><small>With punch out</small></article>
+              <article><span>TOTAL HOURS</span><strong>{formatDuration(attendanceData.summary.total_work_seconds)}</strong><small>For selected period</small></article>
+            </div>
+            <div className="admin-staff-attendance-table-wrap">
+              {attendanceData.attendance.length ? <table className="admin-staff-attendance-table">
+                <thead><tr><th>DATE</th><th>PUNCH IN</th><th>PUNCH OUT</th><th>WORKED</th></tr></thead>
+                <tbody>{attendanceData.attendance.map(row => <tr key={row.id}>
+                  <td><b>{formatDate(row.attendance_date)}</b></td>
+                  <td>{formatTime(row.punch_in)}</td>
+                  <td>{formatTime(row.punch_out)}</td>
+                  <td><strong>{formatDuration(row.total_work_seconds)}</strong></td>
+                </tr>)}</tbody>
+              </table> : <div className="admin-staff-empty"><CalendarDays /><h2>No attendance records</h2><p>No punch-in records were found for this period.</p></div>}
+            </div>
+          </>}
       </section>
     </div>}
   </section>;
