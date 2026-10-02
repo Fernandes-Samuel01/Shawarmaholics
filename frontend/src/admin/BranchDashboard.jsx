@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import BranchPricing from './BranchPricing';
+import AnalyticsDashboard from './AnalyticsDashboard';
 import { ArrowLeft, BarChart3, Building2, ChevronRight, ExternalLink, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
 
 const summary = [
@@ -23,6 +24,7 @@ export default function BranchDashboard({ branch, adminToken, onBack }) {
   const [activeModule, setActiveModule] = useState(null);
   const selected = management.find(item => item.key === activeModule);
   if (activeModule === 'pricing') return <BranchPricing branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'analytics') return <AnalyticsDashboard branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-branch-module admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Branch Dashboard</button>
     <span className="admin-panel-eyebrow">{selected.label.toUpperCase()}</span>
