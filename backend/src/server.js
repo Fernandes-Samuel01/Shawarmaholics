@@ -941,6 +941,7 @@ app.post('/api/orders', async (req, res) => {
     res.status(201).json({ order: { ...result, estimated_minutes: 12 } });
   } catch (e) {
     try { await client.query('ROLLBACK') } catch { }
+    console.error('Order creation failed:', e);
     const message = e.message === 'Invalid monetary value' ? 'Invalid database price' : 'Unable to create order';
     res.status(500).json({ message });
   } finally { client.release() }
