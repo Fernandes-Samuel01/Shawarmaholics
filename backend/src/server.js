@@ -52,9 +52,11 @@ async function activateQueueOrders(queue) {
     return activated;
   } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
 }
-async function getKitchenQueue(branchId = null) {
-  const branchCondition = Number.isInteger(branchId) ? ' AND o.branch_id=$1' : '';
-  const params = Number.isInteger(branchId) ? [branchId] : [];
+async function getKitchenQueue(locationType = 'HEAD_OFFICE', branchId = null) {
+  const normalizedLocation = String(locationType || 'HEAD_OFFICE').toUpperCase();
+  const isBranch = normalizedLocation === 'BRANCH';
+  const branchCondition = isBranch ? ' AND o.branch_id=$1' : ' AND o.branch_id IS NULL';
+  const params = isBranch ? [branchId] : [];
   let { rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params);
   let queue = queueSnapshot(rows);
   if ((await activateQueueOrders(queue)).length) {
@@ -916,7 +918,7 @@ app.post('/api/orders', async (req, res) => {
 
     const result = { ...order, items: storedItems };
     io.emit(orderStatus === 'confirmed' ? 'order:new' : 'order:awaiting_payment', result);
-    if (orderStatus === 'confirmed') await getKitchenQueue(branchId);
+    if (orderStatus === 'confirmed') await getKitchenQueue(branchId ? 'BRANCH' : 'HEAD_OFFICE', branchId);
     res.status(201).json({ order: { ...result, estimated_minutes: 12 } });
   } catch (e) {
     try { await client.query('ROLLBACK') } catch { }
@@ -929,12 +931,19 @@ async function updateOrderStatus(req, res, source = 'orders') {
   const status = String(req.body.status || '').toLowerCase();
   if (!['preparing', 'completed'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
   try {
-    const kitchenBranchId = source === 'kitchen' ? Number(req.body?.branchId) : null;
-    if (source === 'kitchen' && (!Number.isInteger(kitchenBranchId) || kitchenBranchId < 1)) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const kitchenLocationType = source === 'kitchen' ? String(req.body?.locationType || 'BRANCH').toUpperCase() : null;
+    const kitchenBranchId = source === 'kitchen' && kitchenLocationType === 'BRANCH' ? Number(req.body?.branchId) : null;
+    if (source === 'kitchen' && !['HEAD_OFFICE', 'BRANCH'].includes(kitchenLocationType)) return res.status(400).json({ message: 'Invalid kitchen location' });
+    if (source === 'kitchen' && kitchenLocationType === 'BRANCH' && (!Number.isInteger(kitchenBranchId) || kitchenBranchId < 1)) return res.status(400).json({ message: 'A valid kitchen branch is required' });
     const { rows: currentRows } = await query('SELECT status,payment_status,branch_id FROM orders WHERE id=$1', [req.params.id]);
     const currentStatus = currentRows[0];
     if (!currentStatus) return res.status(404).json({ message: source === 'kitchen' ? 'Kitchen order not found' : 'Not found' });
-    if (source === 'kitchen' && (currentStatus.payment_status !== 'paid' || Number(currentStatus.branch_id) !== kitchenBranchId)) return res.status(404).json({ message: 'Kitchen order not found' });
+    if (source === 'kitchen') {
+      const locationMatches = kitchenLocationType === 'HEAD_OFFICE'
+        ? currentStatus.branch_id == null
+        : Number(currentStatus.branch_id) === kitchenBranchId;
+      if (currentStatus.payment_status !== 'paid' || !locationMatches) return res.status(404).json({ message: 'Kitchen order not found' });
+    }
     let result;
     if (status === 'preparing') {
       if (currentStatus.status === 'preparing') return res.status(409).json({ message: 'Order is already preparing' });
@@ -953,7 +962,7 @@ async function updateOrderStatus(req, res, source = 'orders') {
     }
     io.emit(status === 'preparing' ? 'order:activated' : 'order:completed', result);
     io.emit('order:updated', result);
-    const current = await getKitchenQueue(source === 'kitchen' ? kitchenBranchId : null);
+    const current = await getKitchenQueue(source === 'kitchen' ? kitchenLocationType : 'HEAD_OFFICE', kitchenBranchId);
     res.json({ success: true, order: result, completedOrder: status === 'completed' ? result : undefined, queue: current.queue });
   } catch (e) { res.status(500).json({ message: e.message }) }
 }
@@ -964,18 +973,24 @@ app.get('/api/analytics/dashboard', auth(['admin', 'manager']), async (req, res)
 
 app.get('/api/kitchen/orders', async (req, res) => {
   try {
-    const branchId = Number(req.query.branchId);
-    if (!Number.isInteger(branchId) || branchId < 1) return res.status(400).json({ message: 'A valid kitchen branch is required' });
-    const current = await getKitchenQueue(branchId);
-    res.json(current);
+    const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
+    if (!['HEAD_OFFICE', 'BRANCH'].includes(locationType)) return res.status(400).json({ message: 'Invalid kitchen location' });
+    const branchId = locationType === 'BRANCH' ? Number(req.query.branchId) : null;
+    if (locationType === 'BRANCH' && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const current = await getKitchenQueue(locationType, branchId);
+    res.json({ ...current, locationType, branchId });
   } catch (e) { res.status(500).json({ message: e.message }) }
 });
 app.get('/api/kitchen/orders/completed', async (req, res) => {
   try {
-    const branchId = Number(req.query.branchId);
-    if (!Number.isInteger(branchId) || branchId < 1) return res.status(400).json({ message: 'A valid kitchen branch is required' });
-    const { rows } = await query(`${completedOrderQuery} WHERE o.status='completed' AND o.branch_id=$1 GROUP BY o.id ORDER BY o.completed_at DESC NULLS LAST,o.id DESC`, [branchId]);
-    res.json({ orders: rows });
+    const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
+    if (!['HEAD_OFFICE', 'BRANCH'].includes(locationType)) return res.status(400).json({ message: 'Invalid kitchen location' });
+    const branchId = locationType === 'BRANCH' ? Number(req.query.branchId) : null;
+    if (locationType === 'BRANCH' && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const condition = locationType === 'HEAD_OFFICE' ? "o.branch_id IS NULL" : "o.branch_id=$1";
+    const params = locationType === 'HEAD_OFFICE' ? [] : [branchId];
+    const { rows } = await query(`${completedOrderQuery} WHERE o.status='completed' AND ${condition} GROUP BY o.id ORDER BY o.completed_at DESC NULLS LAST,o.id DESC`, params);
+    res.json({ orders: rows, locationType, branchId });
   } catch (e) { res.status(500).json({ message: e.message }) }
 });
 app.patch('/api/kitchen/orders/:id/status', (req, res) => updateOrderStatus(req, res, 'kitchen'));
