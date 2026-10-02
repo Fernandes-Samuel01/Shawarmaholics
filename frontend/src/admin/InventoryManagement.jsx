@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { io } from 'socket.io-client';
 import { ArrowLeft, ClipboardList, PackagePlus, RefreshCw, Search } from 'lucide-react';
 import './inventory.css';
 
@@ -35,6 +36,18 @@ export default function InventoryManagement({adminToken,onBack}){
  };
 
  useEffect(()=>{load()},[locationKey,lowStock]);
+
+ useEffect(()=>{
+  const socket=io(API.replace('/api',''));
+  const handleInventoryUpdate=updated=>{
+   const sameLocation=isHeadOffice
+    ? String(updated.locationType||'')==='HEAD_OFFICE' && updated.branchId==null
+    : String(updated.locationType||'')==='BRANCH' && String(updated.branchId||'')===String(selectedBranchId);
+   if(sameLocation) load();
+  };
+  socket.on('inventory.updated',handleInventoryUpdate);
+  return()=>socket.disconnect();
+ },[locationKey,selectedBranchId,isHeadOffice]);
  const filteredStock=useMemo(()=>stock.filter(r=>!itemId||String(r.id)===String(itemId)),[stock,itemId]);
  const lowCount=stock.filter(r=>Number(r.quantity)<=Number(r.low_stock_threshold)).length;
 
