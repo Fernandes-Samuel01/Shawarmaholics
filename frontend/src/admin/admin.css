@@ -2756,3 +2756,19 @@
         min-width: 0 !important
     }
 }
+
+@media(max-width:900px) {
+    .admin-head-office-header,
+    .admin-branch-identity {
+        flex-wrap: wrap
+    }
+
+    .admin-dashboard-kds-button {
+        width: 100%
+    }
+
+    .admin-branch-header-actions {
+        width: 100%;
+        justify-content: space-between
+    }
+}
