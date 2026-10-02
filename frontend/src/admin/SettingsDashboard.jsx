@@ -42,7 +42,7 @@ export default function SettingsDashboard({ adminToken, onBack, locationType = '
     } catch (err) { setError(err.message); } finally { setLoading(false); }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [scopeQuery]);
 
   const update = (key, value) => { setMessage(''); setValues(current => ({ ...current, [key]: value })); };
 
