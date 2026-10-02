@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart3, BookOpen, ClipboardList, ExternalLink, FolderTree, Landmark, ReceiptText, SlidersHorizontal, UserRound } from 'lucide-react';
+import { ArrowLeft, BarChart3, BookOpen, ClipboardList, ExternalLink, FileText, FolderTree, Landmark, ReceiptText, SlidersHorizontal, UserRound } from 'lucide-react';
 import MasterCategories from './MasterCategories';
 import MasterMenu from './MasterMenu';
 import Customizations from './Customizations';
@@ -8,6 +8,7 @@ import AdminOrders from './AdminOrders';
 import InventoryManagement from './InventoryManagement';
 import StaffManagement from './StaffManagement';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import ReportsDashboard from './ReportsDashboard';
 
 const modules = [
   { key: 'categories', label: 'Master Categories', description: 'Manage global menu categories used across all Shawarmaholics branches.', icon: FolderTree },
@@ -17,6 +18,7 @@ const modules = [
   { key: 'inventory', label: 'Inventory Management', description: 'Track branch stock, movements and low-stock items across all branches.', icon: ClipboardList },
   { key: 'staff', label: 'Staff Management', description: 'Manage staff roles, primary locations and active profiles.', icon: UserRound },
   { key: 'analytics', label: 'Analytics', description: 'Review consolidated business performance across operating locations.', icon: BarChart3 },
+  { key: 'reports', label: 'Reports', description: 'Generate structured operational reports and export them as CSV.', icon: FileText },
   { key: 'customizations', label: 'Customizations', description: 'Manage sauces, extras and customization options.', icon: SlidersHorizontal }
 ];
 
@@ -31,6 +33,7 @@ export default function HeadOfficeDashboard({ adminToken }) {
   if (activeModule === 'inventory') return <InventoryManagement adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'staff') return <StaffManagement adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'analytics') return <AnalyticsDashboard adminToken={adminToken} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'reports') return <ReportsDashboard adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-head-office-placeholder admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Head Office</button>
     <span className="admin-panel-eyebrow">HEAD OFFICE MODULE</span>
