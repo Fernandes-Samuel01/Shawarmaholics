@@ -17,6 +17,7 @@ const query = (text, params = []) => db.query(text, params);
 require('./kitchen-routes')(app, query, io, db);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
+const { getSetting } = require('./services/settings-service');
 const auth = (roles = []) => (req, res, next) => {
   try {
     const user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), process.env.JWT_SECRET);
@@ -29,6 +30,7 @@ require('./routes/branch-pricing-routes')(app, { query, db, auth });
 require('./routes/inventory-routes')(app, { query, db, auth, io });
 require('./routes/analytics-routes')(app, { query, auth });
 require('./routes/report-routes')(app, { query, auth });
+require('./routes/settings-routes')(app, { query, auth });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
@@ -61,10 +63,11 @@ async function getKitchenQueue(locationType = 'HEAD_OFFICE', branchId = null) {
   const branchCondition = isBranch ? ' AND o.branch_id=$1' : ' AND o.branch_id IS NULL';
   const params = isBranch ? [branchId] : [];
   let { rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params);
-  let queue = queueSnapshot(rows);
+  const maxActive = Number(await getSetting(query, 'kds.max_active_orders')) || 2;
+  let queue = queueSnapshot(rows, maxActive);
   if ((await activateQueueOrders(queue)).length) {
     ({ rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params));
-    queue = queueSnapshot(rows);
+    queue = queueSnapshot(rows, maxActive);
   }
   return { orders: rows, queue };
 }
@@ -670,6 +673,19 @@ app.post('/api/orders', async (req, res) => {
     const branchId = body.branchId == null || body.branchId === '' ? null : Number(body.branchId);
     if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
     if (!['EAT HERE', 'TAKE PARCEL'].includes(orderType)) return res.status(400).json({ message: 'Invalid order type' });
+    const [eatHereEnabled, takeParcelEnabled, cashEnabled, upiEnabled, kioskEnabled, customizationsEnabled] = await Promise.all([
+      getSetting(query, 'orders.eat_here_enabled'),
+      getSetting(query, 'orders.take_parcel_enabled'),
+      getSetting(query, 'orders.cash_enabled'),
+      getSetting(query, 'orders.upi_enabled'),
+      getSetting(query, 'kiosk.enabled'),
+      getSetting(query, 'kiosk.allow_customizations')
+    ]);
+    if (!kioskEnabled) return res.status(403).json({ message: 'Kiosk ordering is currently disabled' });
+    if (orderType === 'EAT HERE' && !eatHereEnabled) return res.status(403).json({ message: 'Eat Here ordering is currently disabled' });
+    if (orderType === 'TAKE PARCEL' && !takeParcelEnabled) return res.status(403).json({ message: 'Take Parcel ordering is currently disabled' });
+    if (paymentMethod === 'cash' && !cashEnabled) return res.status(403).json({ message: 'Cash payment is currently disabled' });
+    if (paymentMethod === 'upi' && !upiEnabled) return res.status(403).json({ message: 'UPI payment is currently disabled' });
     if (!Array.isArray(items) || !items.length) return res.status(400).json({ message: 'Items required' });
     if (!['upi', 'cash'].includes(paymentMethod) || !['pending', 'paid'].includes(paymentStatus) || !['awaiting_payment', 'confirmed'].includes(orderStatus)) return res.status(400).json({ message: 'Invalid payment or order status' });
     if (items.length > 50) return res.status(400).json({ message: 'Too many order items' });
@@ -726,7 +742,7 @@ app.post('/api/orders', async (req, res) => {
         return res.status(400).json({ message: 'Menu item is unavailable' });
       }
 
-      const customizations = item.customizations;
+      const customizations = customizationsEnabled ? item.customizations : null;
       if (customizations != null && (typeof customizations !== 'object' || Array.isArray(customizations))) {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'Invalid customizations' });
