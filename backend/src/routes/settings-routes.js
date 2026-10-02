@@ -109,6 +109,17 @@ module.exports = function registerSettingsRoutes(app, { query, db, auth, io }) {
       }
       await client.query('COMMIT');
       const settings = await getSettings(query, resolved.scope.locationType, resolved.scope.branchId);
+      if (io) {
+        const publicSettings = Object.fromEntries(
+          Object.entries(settings).filter(([key]) => META[key]?.[4] && key !== 'business.contact_email' && key !== 'business.contact_phone' && key !== 'business.address')
+        );
+        io.emit('settings:updated', {
+          settings: publicSettings,
+          locationType: resolved.scope.locationType,
+          branchId: resolved.scope.branchId,
+          branch: resolved.branch
+        });
+      }
       res.json({ message: 'Settings saved successfully', settings, locationType: resolved.scope.locationType, branchId: resolved.scope.branchId, branch: resolved.branch });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch {}
