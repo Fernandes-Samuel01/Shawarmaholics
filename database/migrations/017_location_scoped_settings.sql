@@ -55,5 +55,7 @@ WHERE setting_key IN (
   'kds.max_active_orders',
   'kds.show_preparation_timer',
   'kds.sound_alerts',
-  'kds.new_order_alerts'
+  'kds.new_order_alerts',
+  'inventory.low_stock_alerts',
+  'inventory.out_of_stock_alerts'
 );
