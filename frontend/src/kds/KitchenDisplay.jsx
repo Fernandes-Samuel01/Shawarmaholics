@@ -49,6 +49,12 @@ function KitchenDisplay({ onMode, locationType = 'HEAD_OFFICE', branchId = null 
     socket.on('connect', () => { setConnectionState('connected'); resync() }); socket.on('reconnect_attempt', () => setConnectionState('reconnecting')); socket.on('reconnect_error', () => setConnectionState('reconnecting')); socket.on('disconnect', () => setConnectionState('offline'));
     socket.on('order:new', order => { const matchesLocation = isHeadOffice ? order.branch_id == null : String(order.branch_id ?? '') === String(branchId ?? ''); if (!matchesLocation) return; resync(); const count = (order.items || []).reduce((sum, item) => sum + Number(item.quantity || 0), 0); newOrderAlertsEnabled && notifyOnce('newOrder', order.id, { title: `Order #${order.order_number}`, message: `${count} item${count === 1 ? '' : 's'} added to the kitchen queue` }) });
     socket.on('order:updated', resync); socket.on('order:activated', resync); socket.on('order:completed', resync);
+    socket.on('settings:updated', payload => {
+      const matchesLocation = isHeadOffice
+        ? payload?.locationType === 'HEAD_OFFICE' && payload?.branchId == null
+        : payload?.locationType === 'BRANCH' && String(payload.branchId || '') === String(branchId || '');
+      if (matchesLocation) setSettings(payload.settings || {});
+    });
     socket.on('inventory.updated', updated => { const matchesLocation = isHeadOffice ? updated.locationType === 'HEAD_OFFICE' : updated.locationType === 'BRANCH' && String(updated.branchId || '') === String(branchId || ''); if (!matchesLocation) return; setStock(current => { const previous = current.find(item => item.id === updated.id); if (stockReady.current && previous && previous.status !== updated.status && ((updated.status === 'low' && settings?.['inventory.low_stock_alerts'] !== false) || (updated.status === 'out' && settings?.['inventory.out_of_stock_alerts'] !== false))) notifyOnce(updated.status === 'out' ? 'outOfStock' : 'lowStock', updated.id, { title: updated.name, message: updated.status === 'out' ? 'Ingredient unavailable.' : `${updated.quantity} ${updated.unit} remaining` }); return current.map(x => x.id === updated.id ? { ...x, ...updated } : x) }); });
     return () => socket.disconnect();
   }, [locationKey, isHeadOffice, branchId, notifyOnce, syncKitchen, syncInventory, settings, newOrderAlertsEnabled]);
