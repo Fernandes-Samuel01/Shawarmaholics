@@ -22,6 +22,11 @@ ALTER TABLE system_settings
     (location_type = 'BRANCH' AND branch_id IS NOT NULL)
   );
 
+-- The original migration made setting_key globally unique. Location-scoped
+-- settings need uniqueness per location instead.
+ALTER TABLE system_settings
+  DROP CONSTRAINT IF EXISTS system_settings_setting_key_key;
+
 CREATE UNIQUE INDEX IF NOT EXISTS system_settings_scope_unique_idx
   ON system_settings(setting_key, COALESCE(branch_id, 0));
 
