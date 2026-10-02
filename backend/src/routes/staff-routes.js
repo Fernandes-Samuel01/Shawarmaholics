@@ -1,4 +1,4 @@
-const STAFF_ROLES = ['MANAGER', 'SUPERVISOR', 'KITCHEN', 'CASHIER', 'STAFF'];
+const STAFF_ROLES = ['MANAGER', 'COOK'];
 
 const parseId = value => {
   const id = Number(value);
