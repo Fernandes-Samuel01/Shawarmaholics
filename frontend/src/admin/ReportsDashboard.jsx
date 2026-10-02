@@ -64,7 +64,7 @@ const columns = {
 };
 
 function api(path, token) {
-  return fetch(API + path, { headers: { Authorization: 'Bearer ' + token } }).then(async response => {
+  return fetch(API + path, { cache: 'no-store', headers: { Authorization: 'Bearer ' + token } }).then(async response => {
     const data = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(data.message || 'Unable to generate report');
     return data;
