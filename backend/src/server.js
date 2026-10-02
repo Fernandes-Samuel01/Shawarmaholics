@@ -725,7 +725,7 @@ app.post('/api/orders', async (req, res) => {
       }
 
       const { rows: [menuItem] } = await client.query(
-        'SELECT mi.id,mi.name,COALESCE(bmp.effective_price,mi.price) price,mi.is_active,mi.available FROM menu_items mi LEFT JOIN branch_menu_prices bmp ON bmp.menu_item_id=mi.id AND bmp.branch_id=$2 WHERE mi.id=$1 FOR UPDATE',
+        'SELECT mi.id,mi.name,COALESCE((SELECT bmp.effective_price FROM branch_menu_prices bmp WHERE bmp.menu_item_id=mi.id AND bmp.branch_id=$2),mi.price) price,mi.is_active,mi.available FROM menu_items mi WHERE mi.id=$1 FOR UPDATE',
         [menuItemId, branchId]
       );
 
