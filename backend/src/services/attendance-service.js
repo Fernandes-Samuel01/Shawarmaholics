@@ -14,7 +14,19 @@ async function getOpenAttendance(query, staffId) {
   return rows[0] || null;
 }
 
-async function verifyAndPunch({ db, phone, otp }) {
+function assertStaffLocation(staff, locationType = 'HEAD_OFFICE', branchId = null) {
+  const normalizedLocation = String(locationType || 'HEAD_OFFICE').toUpperCase();
+  if (!['HEAD_OFFICE', 'BRANCH'].includes(normalizedLocation)) throw errorWithStatus('Invalid attendance location', 400);
+  if (normalizedLocation === 'HEAD_OFFICE') {
+    if (staff.branch_id != null) throw errorWithStatus('This staff member is assigned to a branch, not Head Office', 403);
+    return;
+  }
+  const normalizedBranchId = Number(branchId);
+  if (!Number.isInteger(normalizedBranchId) || normalizedBranchId < 1) throw errorWithStatus('A valid attendance branch is required', 400);
+  if (Number(staff.branch_id) !== normalizedBranchId) throw errorWithStatus('This staff member is not assigned to this branch', 403);
+}
+
+async function verifyAndPunch({ db, phone, otp, locationType = 'HEAD_OFFICE', branchId = null }) {
   const normalized = normalizePhone(phone);
   if (!validPhone(normalized)) throw errorWithStatus('Enter a valid phone number', 400);
   if (!/^\d{6}$/.test(String(otp || ''))) throw errorWithStatus('Enter a valid 6-digit OTP', 400);
@@ -26,6 +38,7 @@ async function verifyAndPunch({ db, phone, otp }) {
     if (!staffRows[0]) throw errorWithStatus('Staff member not found', 404);
     if (!staffRows[0].is_active) throw errorWithStatus('This staff member is inactive', 403);
     const staff = staffRows[0];
+    assertStaffLocation(staff, locationType, branchId);
     const { rows: otpRows } = await client.query("SELECT * FROM otp_verifications WHERE phone=$1 AND purpose=$2 AND used_at IS NULL ORDER BY created_at DESC LIMIT 1 FOR UPDATE", [normalized, OTP_PURPOSE]);
     const record = otpRows[0];
     if (!record) throw errorWithStatus('OTP is invalid or has already been used', 401);
@@ -45,4 +58,4 @@ async function verifyAndPunch({ db, phone, otp }) {
   } catch (error) { if (!committed) await client.query('ROLLBACK'); throw error } finally { client.release() }
 }
 
-module.exports = { findActiveStaff, getOpenAttendance, verifyAndPunch };
+module.exports = { findActiveStaff, getOpenAttendance, verifyAndPunch, assertStaffLocation };
