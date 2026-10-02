@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import BranchPricing from './BranchPricing';
 import AnalyticsDashboard from './AnalyticsDashboard';
+import SettingsDashboard from './SettingsDashboard';
 import { ArrowLeft, BarChart3, Building2, ChevronRight, ExternalLink, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
 
 const summary = [
@@ -17,7 +18,7 @@ const management = [
   { key: 'inventory', label: 'Inventory', icon: Package, description: 'Monitor stock and inventory for this branch.' },
   { key: 'staff', label: 'Staff', icon: Users, description: 'Manage branch staff and attendance.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, description: 'View branch performance and business insights.' },
-  { key: 'settings', label: 'Branch Settings', icon: Settings, description: 'View branch information and operational settings.' }
+  { key: 'settings', label: 'Branch Settings', icon: Settings, description: 'Configure this branch kiosk, KDS and operational behavior.' }
 ];
 
 export default function BranchDashboard({ branch, adminToken, onBack }) {
@@ -25,6 +26,7 @@ export default function BranchDashboard({ branch, adminToken, onBack }) {
   const selected = management.find(item => item.key === activeModule);
   if (activeModule === 'pricing') return <BranchPricing branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'analytics') return <AnalyticsDashboard branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
+  if (activeModule === 'settings') return <SettingsDashboard adminToken={adminToken} locationType="BRANCH" branchId={branch.id} locationName={branch.name} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-branch-module admin-branch-state" aria-live="polite">
     <button className="admin-back-button" type="button" onClick={() => setActiveModule(null)}><ArrowLeft /> Back to Branch Dashboard</button>
     <span className="admin-panel-eyebrow">{selected.label.toUpperCase()}</span>
