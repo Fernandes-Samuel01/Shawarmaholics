@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ArrowLeft, BarChart3, BookOpen, ClipboardList, FolderTree, Landmark, ReceiptText, Settings2, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, BarChart3, BookOpen, ClipboardList, ExternalLink, FolderTree, Landmark, ReceiptText, SlidersHorizontal } from 'lucide-react';
 import MasterCategories from './MasterCategories';
 import MasterMenu from './MasterMenu';
 import Customizations from './Customizations';
@@ -36,7 +36,8 @@ export default function HeadOfficeDashboard({ adminToken }) {
   return <section className="admin-head-office" aria-labelledby="head-office-title">
     <header className="admin-head-office-header">
       <div className="admin-head-office-icon"><Landmark /></div>
-      <div><span className="admin-panel-eyebrow">HEAD OFFICE</span><h1 id="head-office-title">Central Management</h1><p>Manage Shawarmaholics master menu, categories, pricing and global menu configuration.</p></div>
+      <div className="admin-head-office-header-copy"><span className="admin-panel-eyebrow">HEAD OFFICE</span><h1 id="head-office-title">Central Management</h1><p>Manage Shawarmaholics master menu, categories, pricing and global menu configuration.</p></div>
+      <button className="admin-dashboard-kds-button" type="button" onClick={() => window.open('/?view=kds&locationType=HEAD_OFFICE', '_blank', 'noopener,noreferrer')}><ExternalLink /> Open Head Office KDS</button>
     </header>
     <div className="admin-section-heading admin-head-office-section-heading"><span className="admin-panel-eyebrow">CENTRAL CONFIGURATION</span><h2>Head Office Management</h2><p>These controls apply to the Shawarmaholics master menu across all branches.</p></div>
     <div className="admin-head-office-grid">{modules.map(module => { const Icon = module.icon; return <button className="admin-head-office-card" type="button" key={module.key} onClick={() => setActiveModule(module.key)}><span className="admin-management-icon"><Icon /></span><span className="admin-management-copy"><strong>{module.label}</strong><small>{module.description}</small></span><span className="admin-card-arrow">→</span></button> })}</div>
