@@ -43,7 +43,7 @@ async function resolveScope(query, req) {
   }
 }
 
-module.exports = function registerSettingsRoutes(app, { query, db, auth }) {
+module.exports = function registerSettingsRoutes(app, { query, db, auth, io }) {
   app.get('/api/settings/public', async (req, res) => {
     const resolved = await resolveScope(query, req);
     if (resolved.error) return res.status(resolved.error.status).json({ message: resolved.error.message });
