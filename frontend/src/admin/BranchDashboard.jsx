@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import BranchPricing from './BranchPricing';
-import { ArrowLeft, BarChart3, Building2, ChevronRight, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
+import { ArrowLeft, BarChart3, Building2, ChevronRight, ExternalLink, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
 
 const summary = [
   { label: "Today's Revenue", value: '₹48,650' },
@@ -41,7 +41,10 @@ export default function BranchDashboard({ branch, adminToken, onBack }) {
         <h1 id="branch-dashboard-title">{branch.name}</h1>
         <div className="admin-branch-identity-details"><span className="admin-branch-type">{branch.type}</span><span>{branch.code}</span><span>{branch.city}, {branch.state}</span></div>
       </div>
-      <span className={`admin-branch-status ${branch.is_active ? 'is-active' : 'is-inactive'}`}><i /> {branch.is_active ? 'Active' : 'Inactive'}</span>
+      <div className="admin-branch-header-actions">
+        <button className="admin-dashboard-kds-button" type="button" onClick={() => window.open(`/?view=kds&locationType=BRANCH&branchId=${encodeURIComponent(branch.id)}`, '_blank', 'noopener,noreferrer')} disabled={!branch.is_active}><ExternalLink /> Open KDS</button>
+        <span className={`admin-branch-status ${branch.is_active ? 'is-active' : 'is-inactive'}`}><i /> {branch.is_active ? 'Active' : 'Inactive'}</span>
+      </div>
     </header>
     <section className="admin-dashboard-section" aria-labelledby="performance-title">
       <div className="admin-section-heading"><span className="admin-panel-eyebrow">TODAY</span><h2 id="performance-title">Performance summary</h2><p>Temporary demo values until branch analytics are connected.</p></div>
