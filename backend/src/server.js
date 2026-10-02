@@ -14,7 +14,7 @@ const db = new Pool({ connectionString: process.env.DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 const query = (text, params = []) => db.query(text, params);
-require('./kitchen-routes')(app, query, io);
+require('./kitchen-routes')(app, query, io, db);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
 const auth = (roles = []) => (req, res, next) => {
