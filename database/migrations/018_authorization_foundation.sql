@@ -1,6 +1,6 @@
 -- Authorization foundation: the application has exactly three login roles.
 -- ADMIN = Head Office, MANAGER = assigned branch, COOK = KDS.
--- Manager and Cook accounts must belong to a branch; Admin belongs to Head Office.
+-- Cook may operate at Head Office or a branch because both locations have KDS.
 
 ALTER TABLE users
   ADD COLUMN IF NOT EXISTS branch_id INTEGER REFERENCES branches(id) ON DELETE RESTRICT;
@@ -27,8 +27,8 @@ BEGIN
     RAISE EXCEPTION 'Admin users must belong to Head Office';
   END IF;
 
-  IF role_name IN ('manager','cook') AND NEW.branch_id IS NULL THEN
-    RAISE EXCEPTION 'Manager and Cook users must belong to a branch';
+  IF role_name = 'manager' AND NEW.branch_id IS NULL THEN
+    RAISE EXCEPTION 'Manager users must belong to a branch';
   END IF;
 
   RETURN NEW;
@@ -41,6 +41,21 @@ CREATE TRIGGER users_role_location_trigger
 BEFORE INSERT OR UPDATE OF role_id, branch_id ON users
 FOR EACH ROW
 EXECUTE FUNCTION validate_user_role_location();
+
+-- Staff directory uses the same operational roles; Admin remains a login-only role.
+UPDATE staff
+SET role = 'COOK'
+WHERE upper(role) = 'KITCHEN';
+
+UPDATE staff
+SET is_active = false
+WHERE upper(role) NOT IN ('MANAGER','COOK');
+
+ALTER TABLE staff DROP CONSTRAINT IF EXISTS staff_role_check;
+
+ALTER TABLE staff
+  ADD CONSTRAINT staff_role_check
+  CHECK (upper(role) IN ('MANAGER','COOK'));
 
 CREATE INDEX IF NOT EXISTS users_branch_idx ON users(branch_id);
 CREATE INDEX IF NOT EXISTS users_role_idx ON users(role_id);
