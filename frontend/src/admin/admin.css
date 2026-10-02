@@ -784,6 +784,54 @@
     }
 }
 
+.admin-dashboard-kds-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 auto;
+    gap: 8px;
+    min-height: 42px;
+    padding: 0 16px;
+    border: 1px solid #d9c3a6;
+    border-radius: 999px;
+    background: #fffaf2;
+    color: var(--admin-wine-light);
+    font-size: 11px;
+    font-weight: 800;
+    letter-spacing: .05em;
+    cursor: pointer;
+    white-space: nowrap
+}
+
+.admin-dashboard-kds-button:hover,
+.admin-dashboard-kds-button:focus-visible {
+    border-color: #b99562;
+    background: #f8efe2;
+    outline: none
+}
+
+.admin-dashboard-kds-button:disabled {
+    cursor: not-allowed;
+    opacity: .5
+}
+
+.admin-dashboard-kds-button svg {
+    width: 15px;
+    height: 15px
+}
+
+.admin-head-office-header-copy {
+    min-width: 0;
+    flex: 1
+}
+
+.admin-branch-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 0 0 auto
+}
+
 .admin-head-office {
     max-width: 1120px;
     padding-top: 4px
