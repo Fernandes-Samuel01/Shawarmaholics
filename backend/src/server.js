@@ -63,7 +63,7 @@ async function getKitchenQueue(locationType = 'HEAD_OFFICE', branchId = null) {
   const branchCondition = isBranch ? ' AND o.branch_id=$1' : ' AND o.branch_id IS NULL';
   const params = isBranch ? [branchId] : [];
   let { rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params);
-  const maxActive = Number(await getSetting(query, 'kds.max_active_orders')) || 2;
+  const maxActive = Number(await getSetting(query, 'kds.max_active_orders', isBranch ? 'BRANCH' : 'HEAD_OFFICE', branchId)) || 2;
   let queue = queueSnapshot(rows, maxActive);
   if ((await activateQueueOrders(queue)).length) {
     ({ rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params));
@@ -674,12 +674,12 @@ app.post('/api/orders', async (req, res) => {
     if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
     if (!['EAT HERE', 'TAKE PARCEL'].includes(orderType)) return res.status(400).json({ message: 'Invalid order type' });
     const [eatHereEnabled, takeParcelEnabled, cashEnabled, upiEnabled, kioskEnabled, customizationsEnabled] = await Promise.all([
-      getSetting(query, 'orders.eat_here_enabled'),
-      getSetting(query, 'orders.take_parcel_enabled'),
-      getSetting(query, 'orders.cash_enabled'),
-      getSetting(query, 'orders.upi_enabled'),
-      getSetting(query, 'kiosk.enabled'),
-      getSetting(query, 'kiosk.allow_customizations')
+      getSetting(query, 'orders.eat_here_enabled', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId),
+      getSetting(query, 'orders.take_parcel_enabled', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId),
+      getSetting(query, 'orders.cash_enabled', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId),
+      getSetting(query, 'orders.upi_enabled', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId),
+      getSetting(query, 'kiosk.enabled', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId),
+      getSetting(query, 'kiosk.allow_customizations', branchId === null ? 'HEAD_OFFICE' : 'BRANCH', branchId)
     ]);
     if (!kioskEnabled) return res.status(403).json({ message: 'Kiosk ordering is currently disabled' });
     if (orderType === 'EAT HERE' && !eatHereEnabled) return res.status(403).json({ message: 'Eat Here ordering is currently disabled' });
