@@ -14,17 +14,25 @@ const db = new Pool({ connectionString: process.env.DATABASE_URL });
 app.use(cors());
 app.use(express.json());
 const query = (text, params = []) => db.query(text, params);
+const auth = (roles = []) => (req, res, next) => {
+  try {
+    const token = (req.headers.authorization || '').replace(/^Bearer\\s+/i, '').trim();
+    if (!token) return res.status(401).json({ message: 'Authentication required' });
+    const user = jwt.verify(token, process.env.JWT_SECRET);
+    const role = String(user.role || '').toLowerCase();
+    if (roles.length && !roles.map(value => String(value).toLowerCase()).includes(role)) {
+      return res.status(403).json({ message: 'Not authorized' });
+    }
+    if (user.active === false) return res.status(403).json({ message: 'Account is inactive' });
+    req.user = { ...user, role };
+    next();
+  } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
+};
+app.use('/api/admin', auth(['admin']));
 require('./kitchen-routes')(app, query, io, db);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
 const { getSetting } = require('./services/settings-service');
-const auth = (roles = []) => (req, res, next) => {
-  try {
-    const user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), process.env.JWT_SECRET);
-    if (roles.length && !roles.includes(user.role)) return res.status(403).json({ message: 'Not authorized' });
-    req.user = user; next();
-  } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
-};
 require('./routes/staff-routes')(app, { query, db, auth });
 require('./routes/branch-pricing-routes')(app, { query, db, auth });
 require('./routes/inventory-routes')(app, { query, db, auth, io });
@@ -73,7 +81,27 @@ async function getKitchenQueue(locationType = 'HEAD_OFFICE', branchId = null) {
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.post('/api/auth/login', async (req, res) => { try { const { rows } = await query('SELECT u.*,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE email=$1', [req.body.email]); if (!rows[0] || !await bcrypt.compare(req.body.password, rows[0].password_hash)) return res.status(401).json({ message: 'Invalid credentials' }); const user = rows[0]; res.json({ token: jwt.sign({ id: user.id, role: user.role, branch_id: user.branch_id || null }, process.env.JWT_SECRET, { expiresIn: '8h' }), user: { id: user.id, name: user.name, role: user.role, branch_id: user.branch_id || null } }) } catch (e) { res.status(500).json({ message: e.message }) } });
+app.post('/api/auth/login', async (req, res) => {
+  try {
+    const { rows } = await query(
+      'SELECT u.*,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE lower(u.email)=lower($1)',
+      [req.body.email]
+    );
+    if (!rows[0] || !rows[0].active || !await bcrypt.compare(req.body.password, rows[0].password_hash)) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+    const user = rows[0];
+    const role = String(user.role || '').toLowerCase();
+    if (!['admin', 'manager', 'cook'].includes(role)) {
+      return res.status(403).json({ message: 'This account does not have an active application role.' });
+    }
+    const claims = { id: user.id, role, branch_id: user.branch_id || null, active: user.active };
+    res.json({
+      token: jwt.sign(claims, process.env.JWT_SECRET, { expiresIn: '8h' }),
+      user: { id: user.id, name: user.name, role, branch_id: user.branch_id || null }
+    });
+  } catch (e) { res.status(500).json({ message: 'Unable to sign in' }); }
+});
 app.get('/api/branches', async (req, res) => { try { const { rows } = await query('SELECT id,code,name,type,address,city,state,country,postal_code,timezone,is_active FROM branches WHERE is_active=true ORDER BY name ASC'); res.json({ branches: rows }) } catch (e) { res.status(500).json({ message: 'Unable to load branches' }) } });
 app.get('/api/branches/:id', async (req, res) => { try { const branchId = Number(req.params.id); if (!Number.isInteger(branchId) || branchId < 1) return res.status(404).json({ message: 'Branch not found' }); const { rows } = await query('SELECT id,code,name,type,address,city,state,country,postal_code,timezone,is_active FROM branches WHERE id=$1', [branchId]); if (!rows[0]) return res.status(404).json({ message: 'Branch not found' }); res.json({ branch: rows[0] }) } catch (e) { res.status(500).json({ message: 'Unable to load branch' }) } });
 app.get('/api/admin/menu/categories', async (req, res) => { try { const { rows } = await query('SELECT mc.id,mc.name,mc.position,mc.is_active,COUNT(mi.id)::int menu_item_count FROM menu_categories mc LEFT JOIN menu_items mi ON mi.category_id=mc.id GROUP BY mc.id ORDER BY mc.position ASC NULLS LAST,mc.id ASC'); res.json({ categories: rows }) } catch (e) { res.status(500).json({ message: 'Unable to load menu categories' }) } });
