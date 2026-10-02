@@ -22,18 +22,19 @@ function Toggle({ value, onChange }) {
   return <button type="button" className={'admin-settings-toggle ' + (value ? 'on' : '')} aria-pressed={value} onClick={() => onChange(!value)}><span /></button>;
 }
 
-export default function SettingsDashboard({ adminToken, onBack }) {
+export default function SettingsDashboard({ adminToken, onBack, locationType = 'HEAD_OFFICE', branchId = null, locationName = 'Head Office' }) {
   const [rows, setRows] = useState([]);
   const [values, setValues] = useState({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const scopeQuery = locationType === 'BRANCH' ? `?locationType=BRANCH&branchId=${encodeURIComponent(branchId)}` : '?locationType=HEAD_OFFICE';
 
   const load = async () => {
     setLoading(true); setError('');
     try {
-      const response = await fetch(API + '/admin/settings', { headers: { Authorization: 'Bearer ' + adminToken } });
+      const response = await fetch(API + '/admin/settings' + scopeQuery, { headers: { Authorization: 'Bearer ' + adminToken } });
       const data = await response.json();
       if (!response.ok) throw new Error(data.message || 'Unable to load settings');
       setRows(data.settings || []);
@@ -48,7 +49,7 @@ export default function SettingsDashboard({ adminToken, onBack }) {
   const save = async () => {
     setSaving(true); setMessage(''); setError('');
     try {
-      const response = await fetch(API + '/admin/settings', {
+      const response = await fetch(API + '/admin/settings' + scopeQuery, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + adminToken },
         body: JSON.stringify({ settings: values })
@@ -89,6 +90,6 @@ export default function SettingsDashboard({ adminToken, onBack }) {
     {message && <div className="admin-settings-feedback success">{message}</div>}
     {error && <div className="admin-settings-feedback error">{error}</div>}
     {loading ? <div className="admin-settings-empty">Loading settings...</div> : <div className="admin-settings-groups">{grouped.map(group => { const Icon = group.icon; return <section className="admin-settings-group" key={group.key}><header><span className="admin-management-icon"><Icon /></span><div><span className="admin-panel-eyebrow">{group.label.toUpperCase()}</span><h2>{group.label}</h2><p>{group.description}</p></div></header><div className="admin-settings-fields">{group.rows.map(row => <article className="admin-settings-row" key={row.setting_key}><div><strong>{row.label}</strong><small>{row.description}</small></div><div>{renderField(row)}</div></article>)}</div></section> })}</div>}
-    <div className="admin-settings-note"><SlidersHorizontal /><div><strong>Centralized configuration</strong><p>Master menu, pricing, inventory quantities, staff, orders, analytics and reports remain in their dedicated modules. Settings only controls system-wide behavior.</p></div></div>
+    <div className="admin-settings-note"><SlidersHorizontal /><div><strong>Location-scoped configuration</strong><p>Master menu and pricing remain centrally controlled. These settings control only {locationName}'s kiosk, KDS and location-level operational behavior.</p></div></div>
   </section>;
 }
