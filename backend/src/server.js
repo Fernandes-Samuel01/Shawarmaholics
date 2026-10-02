@@ -52,11 +52,13 @@ async function activateQueueOrders(queue) {
     return activated;
   } catch (error) { await client.query('ROLLBACK'); throw error } finally { client.release() }
 }
-async function getKitchenQueue() {
-  let { rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')"));
+async function getKitchenQueue(branchId = null) {
+  const branchCondition = Number.isInteger(branchId) ? ' AND o.branch_id=$1' : '';
+  const params = Number.isInteger(branchId) ? [branchId] : [];
+  let { rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params);
   let queue = queueSnapshot(rows);
   if ((await activateQueueOrders(queue)).length) {
-    ({ rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')")));
+    ({ rows } = await query(kitchenOrderQuery("o.payment_status='paid' AND o.status NOT IN('completed','cancelled')" + branchCondition), params));
     queue = queueSnapshot(rows);
   }
   return { orders: rows, queue };
@@ -914,7 +916,7 @@ app.post('/api/orders', async (req, res) => {
 
     const result = { ...order, items: storedItems };
     io.emit(orderStatus === 'confirmed' ? 'order:new' : 'order:awaiting_payment', result);
-    if (orderStatus === 'confirmed') await getKitchenQueue();
+    if (orderStatus === 'confirmed') await getKitchenQueue(branchId);
     res.status(201).json({ order: { ...result, estimated_minutes: 12 } });
   } catch (e) {
     try { await client.query('ROLLBACK') } catch { }
@@ -927,10 +929,12 @@ async function updateOrderStatus(req, res, source = 'orders') {
   const status = String(req.body.status || '').toLowerCase();
   if (!['preparing', 'completed'].includes(status)) return res.status(400).json({ message: 'Invalid status' });
   try {
-    const { rows: currentRows } = await query('SELECT status,payment_status FROM orders WHERE id=$1', [req.params.id]);
+    const kitchenBranchId = source === 'kitchen' ? Number(req.body?.branchId) : null;
+    if (source === 'kitchen' && (!Number.isInteger(kitchenBranchId) || kitchenBranchId < 1)) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const { rows: currentRows } = await query('SELECT status,payment_status,branch_id FROM orders WHERE id=$1', [req.params.id]);
     const currentStatus = currentRows[0];
     if (!currentStatus) return res.status(404).json({ message: source === 'kitchen' ? 'Kitchen order not found' : 'Not found' });
-    if (source === 'kitchen' && currentStatus.payment_status !== 'paid') return res.status(404).json({ message: 'Kitchen order not found' });
+    if (source === 'kitchen' && (currentStatus.payment_status !== 'paid' || Number(currentStatus.branch_id) !== kitchenBranchId)) return res.status(404).json({ message: 'Kitchen order not found' });
     let result;
     if (status === 'preparing') {
       if (currentStatus.status === 'preparing') return res.status(409).json({ message: 'Order is already preparing' });
@@ -949,7 +953,7 @@ async function updateOrderStatus(req, res, source = 'orders') {
     }
     io.emit(status === 'preparing' ? 'order:activated' : 'order:completed', result);
     io.emit('order:updated', result);
-    const current = await getKitchenQueue();
+    const current = await getKitchenQueue(source === 'kitchen' ? kitchenBranchId : null);
     res.json({ success: true, order: result, completedOrder: status === 'completed' ? result : undefined, queue: current.queue });
   } catch (e) { res.status(500).json({ message: e.message }) }
 }
@@ -958,8 +962,22 @@ app.patch('/api/admin/orders/:id/status', auth(['admin']), (req, res) => updateO
 
 app.get('/api/analytics/dashboard', auth(['admin', 'manager']), async (req, res) => { try { const { rows: [metrics] } = await query("SELECT COALESCE(SUM(total) FILTER(WHERE created_at::date=CURRENT_DATE),0) revenue,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) orders,COALESCE(ROUND(AVG(total) FILTER(WHERE created_at::date=CURRENT_DATE)),0) aov,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) customers FROM orders"); res.json({ metrics }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
-app.get('/api/kitchen/orders', async (req, res) => { try { const current = await getKitchenQueue(); res.json(current) } catch (e) { res.status(500).json({ message: e.message }) } });
-app.get('/api/kitchen/orders/completed', async (req, res) => { try { const { rows } = await query(`${completedOrderQuery} WHERE o.status='completed' GROUP BY o.id ORDER BY o.completed_at DESC NULLS LAST,o.id DESC`); res.json({ orders: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
+app.get('/api/kitchen/orders', async (req, res) => {
+  try {
+    const branchId = Number(req.query.branchId);
+    if (!Number.isInteger(branchId) || branchId < 1) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const current = await getKitchenQueue(branchId);
+    res.json(current);
+  } catch (e) { res.status(500).json({ message: e.message }) }
+});
+app.get('/api/kitchen/orders/completed', async (req, res) => {
+  try {
+    const branchId = Number(req.query.branchId);
+    if (!Number.isInteger(branchId) || branchId < 1) return res.status(400).json({ message: 'A valid kitchen branch is required' });
+    const { rows } = await query(`${completedOrderQuery} WHERE o.status='completed' AND o.branch_id=$1 GROUP BY o.id ORDER BY o.completed_at DESC NULLS LAST,o.id DESC`, [branchId]);
+    res.json({ orders: rows });
+  } catch (e) { res.status(500).json({ message: e.message }) }
+});
 app.patch('/api/kitchen/orders/:id/status', (req, res) => updateOrderStatus(req, res, 'kitchen'));
 io.on('connection', socket => socket.emit('system:ready'));
 server.listen(process.env.PORT || 4000, () => console.log('SHAWARMAHOLICS API running'));
