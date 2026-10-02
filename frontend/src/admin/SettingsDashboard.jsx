@@ -7,8 +7,8 @@ const GROUPS = [
   { key: 'business', label: 'Business', icon: Building2, description: 'Organization identity and regional defaults.' },
   { key: 'orders', label: 'Orders & Payments', icon: CreditCard, description: 'Customer order types and payment methods.' },
   { key: 'kiosk', label: 'Kiosk', icon: ShoppingBag, description: 'Customer-facing kiosk behavior and menu presentation.' },
-  { key: 'kds', label: 'Kitchen / KDS', icon: ChefHat, description: 'Global kitchen queue and display behavior.' },
-  { key: 'inventory', label: 'Inventory', icon: Package, description: 'Global stock-control and inventory alert rules.' },
+  { key: 'kds', label: 'Kitchen / KDS', icon: ChefHat, description: 'Kitchen queue and display behavior for this location.' },
+  { key: 'inventory', label: 'Inventory', icon: Package, description: 'Stock-control and inventory alert rules for this location.' },
   { key: 'notifications', label: 'Notifications', icon: Bell, description: 'Administrative and operational alert preferences.' }
 ];
 
@@ -82,9 +82,9 @@ export default function SettingsDashboard({ adminToken, onBack, locationType = '
   };
 
   return <section className="admin-settings-page">
-    <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Head Office</button>
+    <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to {locationType === 'BRANCH' ? 'Branch Dashboard' : 'Head Office'}</button>
     <header className="admin-settings-header">
-      <div><span className="admin-panel-eyebrow">HEAD OFFICE SETTINGS</span><h1>System control room</h1><p>Configure global Shawarmaholics behavior from one authoritative place. Changes are stored in PostgreSQL and consumed by the relevant operational screens.</p></div>
+      <div><span className="admin-panel-eyebrow">{locationType === 'BRANCH' ? 'BRANCH SETTINGS' : 'HEAD OFFICE SETTINGS'}</span><h1>{locationName} control room</h1><p>Configure operational behavior for this location. Settings are isolated to this location's kiosk, KDS and operational alerts.</p></div>
       <button className="admin-primary-action admin-settings-save" type="button" onClick={save} disabled={saving || loading}><Save /> {saving ? 'Saving...' : 'Save Changes'}</button>
     </header>
     {message && <div className="admin-settings-feedback success">{message}</div>}
