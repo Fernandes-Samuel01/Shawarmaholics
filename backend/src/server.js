@@ -17,7 +17,6 @@ const query = (text, params = []) => db.query(text, params);
 require('./kitchen-routes')(app, query, io, db);
 require('./kitchen-performance')(app, query);
 require('./routes/staff-attendance-routes')(app, { query, db });
-require('./routes/staff-routes')(app, { query, db, auth });
 const auth = (roles = []) => (req, res, next) => {
   try {
     const user = jwt.verify((req.headers.authorization || '').replace('Bearer ', ''), process.env.JWT_SECRET);
@@ -25,6 +24,7 @@ const auth = (roles = []) => (req, res, next) => {
     req.user = user; next();
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
+require('./routes/staff-routes')(app, { query, db, auth });
 require('./routes/branch-pricing-routes')(app, { query, db, auth });
 require('./routes/inventory-routes')(app, { query, db, auth, io });
 
