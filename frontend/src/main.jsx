@@ -175,7 +175,7 @@ function Kiosk() {
     };
 
     const typeLabel = type === 'EAT HERE' ? t.eat : t.parcel;
-    const orderTypes = [[t.eat, 'EAT HERE']].concat(settings?.['orders.take_parcel_enabled'] === false ? [] : [[t.parcel, 'TAKE PARCEL']]);
+    const orderTypes = (settings?.['orders.eat_here_enabled'] === false ? [] : [[t.eat, 'EAT HERE']]).concat(settings?.['orders.take_parcel_enabled'] === false ? [] : [[t.parcel, 'TAKE PARCEL']]);
     const paymentOptions = [[t.payUpi, 'upi', Smartphone, t.upiHint]].filter(() => settings?.['orders.upi_enabled'] !== false).concat([[t.payCash, 'cash', Banknote, t.cashHint]].filter(() => settings?.['orders.cash_enabled'] !== false));
     const categoryNames = ['Featured', ...categories.map(category => category.name)];
     const visibleMenu = menu.filter(item => cat === 'Featured' || item.category_name === cat);
