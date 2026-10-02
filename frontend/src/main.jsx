@@ -37,6 +37,18 @@ function Kiosk() {
     }, []);
 
     useEffect(() => {
+        const socket = io(API.replace('/api', ''));
+        const matchesLocation = payload => kioskBranchId
+            ? payload?.locationType === 'BRANCH' && String(payload.branchId || '') === String(kioskBranchId)
+            : payload?.locationType === 'HEAD_OFFICE' && payload?.branchId == null;
+        const handleSettingsUpdate = payload => {
+            if (matchesLocation(payload)) setSettings(payload.settings || {});
+        };
+        socket.on('settings:updated', handleSettingsUpdate);
+        return () => socket.disconnect();
+    }, [kioskBranchId]);
+
+    useEffect(() => {
         setMenuLoading(true);
         setMenuError('');
         api('/kiosk/menu' + (kioskBranchId ? `?branchId=${encodeURIComponent(kioskBranchId)}` : ''))
