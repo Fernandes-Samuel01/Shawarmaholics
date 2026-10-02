@@ -76,7 +76,6 @@ module.exports = function registerSettingsRoutes(app, { query, auth }) {
       if (key === 'business.name' && !value.trim()) return res.status(400).json({ message: 'Business name is required' });
     }
 
-    const client = await query('SELECT 1');
     try {
       for (const [key, value] of entries) {
         await query(
