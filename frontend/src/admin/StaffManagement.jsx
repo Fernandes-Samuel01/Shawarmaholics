@@ -49,7 +49,11 @@ function formatTime(value) {
 
 function formatDate(value) {
   if (!value) return '—';
-  return new Date(`${value}T00:00:00+05:30`).toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
+  const date = value instanceof Date
+    ? value
+    : new Date(`${String(value).slice(0, 10)}T00:00:00+05:30`);
+  if (Number.isNaN(date.getTime())) return '—';
+  return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 export default function StaffManagement({ adminToken, onBack }) {
