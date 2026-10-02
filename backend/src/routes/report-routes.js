@@ -34,7 +34,7 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
 
       if (type === 'sales') {
         ({ rows } = await query(
-          `SELECT o.created_at::date AS report_date,
+          `SELECT o.created_at::date::text AS report_date,
             COUNT(*) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled')::int AS orders,
             COALESCE(SUM(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS revenue,
             COALESCE(AVG(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS average_order_value,
