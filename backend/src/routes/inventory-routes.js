@@ -1,7 +1,7 @@
 const movementTypes = new Set(['RECEIPT','ADJUSTMENT_IN','ADJUSTMENT_OUT','WASTE','RETURN']);
 const inboundTypes = new Set(['RECEIPT','ADJUSTMENT_IN','RETURN']);
 
-module.exports = function registerInventoryRoutes(app, { query, db, auth }) {
+module.exports = function registerInventoryRoutes(app, { query, db, auth, io }) {
   const parseId = value => { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; };
 
   const parseLocation = req => {
@@ -157,7 +157,27 @@ module.exports = function registerInventoryRoutes(app, { query, db, auth }) {
         await client.query('UPDATE branch_inventory_balances SET quantity=$1,updated_at=NOW() WHERE branch_id=$2 AND inventory_item_id=$3',[next,branchId,itemId]);
       }
       await client.query('COMMIT');
-      res.status(201).json({movement:{...movement,quantity,movementType,locationType,branchId,inventoryItemId:itemId,newQuantity:next}});
+      const { rows: [updatedItem] } = await query(
+        locationType === 'HEAD_OFFICE'
+          ? "SELECT ii.id,ii.sku,ii.name,ii.unit,ii.low_stock_threshold,COALESCE(b.quantity,0) quantity,CASE WHEN COALESCE(b.quantity,0)<=0 THEN 'out' WHEN COALESCE(b.quantity,0)<=ii.low_stock_threshold THEN 'low' ELSE 'available' END status FROM inventory_items ii LEFT JOIN head_office_inventory_balances b ON b.inventory_item_id=ii.id WHERE ii.id=$1"
+          : "SELECT ii.id,ii.sku,ii.name,ii.unit,ii.low_stock_threshold,COALESCE(b.quantity,0) quantity,CASE WHEN COALESCE(b.quantity,0)<=0 THEN 'out' WHEN COALESCE(b.quantity,0)<=ii.low_stock_threshold THEN 'low' ELSE 'available' END status FROM inventory_items ii LEFT JOIN branch_inventory_balances b ON b.inventory_item_id=ii.id AND b.branch_id=$2 WHERE ii.id=$1",
+        locationType === 'HEAD_OFFICE' ? [itemId] : [itemId, branchId]
+      );
+      const liveItem = {
+        ...updatedItem,
+        locationType,
+        branchId,
+        inventoryItemId: itemId,
+        movementType,
+        movementId: movement.id,
+        newQuantity: next
+      };
+      if (io) {
+        io.emit('inventory.updated', liveItem);
+        if (liveItem.status === 'low') io.emit('inventory.low', liveItem);
+        if (liveItem.status === 'out') io.emit('inventory.out_of_stock', liveItem);
+      }
+      res.status(201).json({movement:{...movement,quantity,movementType,locationType,branchId,inventoryItemId:itemId,newQuantity:next}, item:liveItem});
     }catch(e){try{await client.query('ROLLBACK')}catch{}res.status(500).json({message:'Unable to post inventory movement'});}finally{client.release();}
   });
 };
