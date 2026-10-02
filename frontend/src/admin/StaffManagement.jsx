@@ -4,10 +4,7 @@ import { ArrowLeft, CalendarDays, Check, Clock3, Edit3, Eye, Plus, Search, UserC
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 const ROLE_LABELS = {
   MANAGER: 'Manager',
-  SUPERVISOR: 'Supervisor',
-  KITCHEN: 'Kitchen',
-  CASHIER: 'Cashier',
-  STAFF: 'General Staff'
+  COOK: 'Cook'
 };
 
 const api = (path, token, opts = {}) => fetch(API + path, {
@@ -23,7 +20,7 @@ const api = (path, token, opts = {}) => fetch(API + path, {
   return data;
 });
 
-const emptyForm = { name: '', phone: '', email: '', role: 'STAFF', branch_id: 'HEAD_OFFICE', is_active: true };
+const emptyForm = { name: '', phone: '', email: '', role: 'COOK', branch_id: 'HEAD_OFFICE', is_active: true };
 
 const monthStart = () => {
   const now = new Date();
@@ -130,7 +127,7 @@ export default function StaffManagement({ adminToken, onBack }) {
       name: person.name || '',
       phone: person.phone || '',
       email: person.email || '',
-      role: person.role || 'STAFF',
+      role: person.role || 'COOK',
       branch_id: person.branch_id ? String(person.branch_id) : 'HEAD_OFFICE',
       is_active: Boolean(person.is_active)
     });
