@@ -34,15 +34,15 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
 
       if (type === 'sales') {
         ({ rows } = await query(
-          `SELECT (o.created_at AT TIME ZONE 'Asia/Kolkata')::date AS report_date,
+          `SELECT o.created_at::date AS report_date,
             COUNT(*) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled')::int AS orders,
             COALESCE(SUM(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS revenue,
             COALESCE(AVG(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS average_order_value,
             COUNT(*) FILTER (WHERE o.status='completed' AND o.payment_status='paid')::int AS completed_orders
            FROM orders o
-           WHERE (o.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN $1::date AND $2::date ${condition}
-           GROUP BY (o.created_at AT TIME ZONE 'Asia/Kolkata')::date
-           ORDER BY (o.created_at AT TIME ZONE 'Asia/Kolkata')::date ASC`,
+           WHERE o.created_at::date BETWEEN $1::date AND $2::date ${condition}
+           GROUP BY o.created_at::date
+           ORDER BY o.created_at::date ASC`,
           params
         ));
       }
@@ -55,7 +55,7 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
             COUNT(DISTINCT o.id) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled')::int AS orders
            FROM order_items oi
            JOIN orders o ON o.id=oi.order_id
-           WHERE (o.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN $1::date AND $2::date ${condition}
+           WHERE o.created_at::date BETWEEN $1::date AND $2::date ${condition}
            GROUP BY oi.item_name
            ORDER BY quantity_sold DESC, revenue DESC, oi.item_name ASC`,
           params
@@ -68,7 +68,7 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
             COUNT(*) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled')::int AS orders,
             COALESCE(SUM(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS revenue
            FROM orders o
-           WHERE (o.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN $1::date AND $2::date ${condition}
+           WHERE o.created_at::date BETWEEN $1::date AND $2::date ${condition}
            GROUP BY o.payment_method
            ORDER BY revenue DESC, payment_method ASC`,
           params
@@ -83,7 +83,7 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
             COALESCE(AVG(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS average_order_value
            FROM orders o
            LEFT JOIN branches b ON b.id=o.branch_id
-           WHERE (o.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN $1::date AND $2::date ${condition}
+           WHERE o.created_at::date BETWEEN $1::date AND $2::date ${condition}
            GROUP BY COALESCE(b.name,'Head Office')
            ORDER BY revenue DESC, branch ASC`,
           params
@@ -102,7 +102,7 @@ module.exports = function registerReportRoutes(app, { query, auth }) {
             o.total
            FROM orders o
            LEFT JOIN branches b ON b.id=o.branch_id
-           WHERE (o.created_at AT TIME ZONE 'Asia/Kolkata')::date BETWEEN $1::date AND $2::date ${condition}
+           WHERE o.created_at::date BETWEEN $1::date AND $2::date ${condition}
            ORDER BY o.created_at DESC, o.id DESC
            LIMIT 1000`,
           params
