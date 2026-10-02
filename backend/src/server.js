@@ -25,7 +25,7 @@ const auth = (roles = []) => (req, res, next) => {
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
 require('./routes/branch-pricing-routes')(app, { query, db, auth });
-require('./routes/inventory-routes')(app, { query, db, auth });
+require('./routes/inventory-routes')(app, { query, db, auth, io });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
@@ -955,7 +955,7 @@ async function updateOrderStatus(req, res, source = 'orders') {
 }
 app.patch('/api/orders/:id/status', (req, res) => updateOrderStatus(req, res, 'orders'));
 app.patch('/api/admin/orders/:id/status', auth(['admin']), (req, res) => updateOrderStatus(req, res, 'orders'));
-app.get('/api/inventory', async (req, res) => { try { const { rows } = await query("SELECT *,CASE WHEN quantity<=0 THEN 'out' WHEN quantity<=low_stock_threshold THEN 'low' ELSE 'available' END status FROM inventory_items ORDER BY quantity"); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
+
 app.get('/api/analytics/dashboard', auth(['admin', 'manager']), async (req, res) => { try { const { rows: [metrics] } = await query("SELECT COALESCE(SUM(total) FILTER(WHERE created_at::date=CURRENT_DATE),0) revenue,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) orders,COALESCE(ROUND(AVG(total) FILTER(WHERE created_at::date=CURRENT_DATE)),0) aov,COUNT(*) FILTER(WHERE created_at::date=CURRENT_DATE) customers FROM orders"); res.json({ metrics }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
 app.get('/api/kitchen/orders', async (req, res) => { try { const current = await getKitchenQueue(); res.json(current) } catch (e) { res.status(500).json({ message: e.message }) } });
