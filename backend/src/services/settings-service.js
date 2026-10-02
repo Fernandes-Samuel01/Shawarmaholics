@@ -27,9 +27,22 @@ const DEFAULTS = {
   'notifications.kds': true
 };
 
-async function getSettings(query) {
+function normalizeScope(locationType = 'HEAD_OFFICE', branchId = null) {
+  const normalized = String(locationType || 'HEAD_OFFICE').toUpperCase();
+  if (normalized === 'HEAD_OFFICE') return { locationType: 'HEAD_OFFICE', branchId: null };
+  if (normalized === 'BRANCH') {
+    const id = Number(branchId);
+    if (!Number.isInteger(id) || id < 1) throw new Error('A valid branch is required');
+    return { locationType: 'BRANCH', branchId: id };
+  }
+  throw new Error('Invalid settings location');
+}
+
+async function getSettings(query, locationType = 'HEAD_OFFICE', branchId = null) {
+  const scope = normalizeScope(locationType, branchId);
   const { rows } = await query(
-    'SELECT setting_key,value,value_type,is_public FROM system_settings ORDER BY category,setting_key'
+    'SELECT setting_key,value,value_type,is_public FROM system_settings WHERE location_type=$1 AND branch_id IS NOT DISTINCT FROM $2 ORDER BY category,setting_key',
+    [scope.locationType, scope.branchId]
   );
   return rows.reduce((result, row) => {
     result[row.setting_key] = row.value;
@@ -37,9 +50,9 @@ async function getSettings(query) {
   }, { ...DEFAULTS });
 }
 
-async function getSetting(query, key) {
-  const settings = await getSettings(query);
+async function getSetting(query, key, locationType = 'HEAD_OFFICE', branchId = null) {
+  const settings = await getSettings(query, locationType, branchId);
   return Object.prototype.hasOwnProperty.call(settings, key) ? settings[key] : DEFAULTS[key];
 }
 
-module.exports = { DEFAULTS, getSettings, getSetting };
+module.exports = { DEFAULTS, normalizeScope, getSettings, getSetting };
