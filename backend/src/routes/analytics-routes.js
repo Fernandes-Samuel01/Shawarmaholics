@@ -48,7 +48,7 @@ module.exports = function registerAnalyticsRoutes(app, { query, auth }) {
       );
 
       const { rows: trend } = await query(
-        `SELECT o.created_at::date AS date,
+        `SELECT TO_CHAR(o.created_at::date, 'YYYY-MM-DD') AS date,
           COALESCE(SUM(o.total) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled'),0)::numeric AS revenue,
           COUNT(*) FILTER (WHERE o.payment_status='paid' AND o.status <> 'cancelled')::int AS orders
         FROM orders o
