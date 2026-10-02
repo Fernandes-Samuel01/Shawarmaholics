@@ -7,5 +7,5 @@ async function request(path, body) {
   if (!response.ok) { const error = new Error(data.message || 'Attendance request failed'); error.status = response.status; error.data = data; throw error }
   return data;
 }
-export const requestOtp = phone => request('/staff-attendance/request-otp', { phone });
-export const verifyOtp = (phone, otp) => request('/staff-attendance/verify-otp', { phone, otp });
+export const requestOtp = (phone, locationType = 'HEAD_OFFICE', branchId = null) => request('/staff-attendance/request-otp', { phone, locationType, branchId });
+export const verifyOtp = (phone, otp, locationType = 'HEAD_OFFICE', branchId = null) => request('/staff-attendance/verify-otp', { phone, otp, locationType, branchId });
