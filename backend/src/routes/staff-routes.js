@@ -204,4 +204,63 @@ module.exports = function registerStaffRoutes(app, { query, db, auth }) {
       client.release();
     }
   });
+  app.get('/api/admin/staff/:id/attendance', auth(['admin']), async (req, res) => {
+    const staffId = parseId(req.params.id);
+    if (!staffId) return res.status(400).json({ message: 'Invalid staff ID' });
+
+    const validDate = value => typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const now = new Date();
+    const defaultFrom = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10);
+    const defaultTo = now.toISOString().slice(0, 10);
+    const from = req.query.from ? String(req.query.from) : defaultFrom;
+    const to = req.query.to ? String(req.query.to) : defaultTo;
+
+    if (!validDate(from) || !validDate(to)) return res.status(400).json({ message: 'Use YYYY-MM-DD dates' });
+    if (from > to) return res.status(400).json({ message: 'Attendance start date cannot be after end date' });
+
+    try {
+      const { rows: [staff] } = await query(
+        `SELECT s.id,s.name,s.phone,s.role,s.branch_id,s.is_active,b.name branch_name,b.code branch_code
+         FROM staff s LEFT JOIN branches b ON b.id=s.branch_id WHERE s.id=$1`,
+        [staffId]
+      );
+      if (!staff) return res.status(404).json({ message: 'Staff member not found' });
+
+      const { rows } = await query(
+        `SELECT id,attendance_date,punch_in,punch_out,total_work_seconds
+         FROM staff_attendance
+         WHERE staff_id=$1 AND attendance_date BETWEEN $2::date AND $3::date
+         ORDER BY attendance_date DESC,punch_in DESC`,
+        [staffId, from, to]
+      );
+
+      const totalWorkSeconds = rows.reduce((sum, row) => sum + Number(row.total_work_seconds || 0), 0);
+      const completedDays = rows.filter(row => row.punch_out).length;
+      const openDays = rows.filter(row => !row.punch_out).length;
+
+      res.json({
+        staff: serializeStaff(staff),
+        range: { from, to },
+        summary: {
+          days_present: rows.length,
+          completed_days: completedDays,
+          open_days: openDays,
+          total_work_seconds: totalWorkSeconds
+        },
+        attendance: rows.map(row => ({
+          id: row.id,
+          attendance_date: row.attendance_date,
+          punch_in: row.punch_in,
+          punch_out: row.punch_out,
+          punch_in_ist: row.punch_in ? new Date(row.punch_in).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) : null,
+          punch_out_ist: row.punch_out ? new Date(row.punch_out).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', hour12: false }) : null,
+          total_work_seconds: row.total_work_seconds
+        }))
+      });
+    } catch (error) {
+      console.error('Admin staff attendance failed:', error.message);
+      res.status(500).json({ message: 'Unable to load staff attendance' });
+    }
+  });
+
 };
