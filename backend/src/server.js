@@ -6,13 +6,68 @@ const { Server } = require('socket.io');
 const { Pool } = require('pg');
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
+const crypto = require('crypto');
 
 const app = express();
+app.disable('x-powered-by');
+
+const allowedOrigins = String(process.env.FRONTEND_URL || 'http://localhost:5173')
+  .split(',')
+  .map(value => value.trim())
+  .filter(Boolean);
+
+const corsOptions = {
+  origin(origin, callback) {
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    return callback(new Error('CORS origin not allowed'));
+  },
+  credentials: true
+};
+
+const rateBuckets = new Map();
+const rateLimit = ({ windowMs, max, message = 'Too many requests. Please try again later.' }) => (req, res, next) => {
+  const now = Date.now();
+  const key = `${req.ip}:${req.path}`;
+  const bucket = rateBuckets.get(key);
+  if (!bucket || now - bucket.startedAt >= windowMs) {
+    rateBuckets.set(key, { startedAt: now, count: 1 });
+    return next();
+  }
+  bucket.count += 1;
+  if (bucket.count > max) {
+    res.setHeader('Retry-After', Math.ceil((windowMs - (now - bucket.startedAt)) / 1000));
+    return res.status(429).json({ message });
+  }
+  return next();
+};
+
+const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many login attempts. Please try again later.' });
+const attendanceRateLimit = rateLimit({ windowMs: 60 * 1000, max: 10, message: 'Too many attendance requests. Please try again later.' });
+
+const kdsDeviceKey = String(process.env.KDS_DEVICE_KEY || '').trim();
+const requireKdsDevice = (req, res, next) => {
+  if (!kdsDeviceKey) {
+    if (process.env.NODE_ENV === 'production') return res.status(503).json({ message: 'KDS device security is not configured' });
+    return next();
+  }
+  const supplied = String(req.headers['x-kds-device-key'] || '');
+  if (!supplied || supplied.length !== kdsDeviceKey.length || !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(kdsDeviceKey))) {
+    return res.status(401).json({ message: 'KDS device authorization required' });
+  }
+  next();
+};
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: process.env.FRONTEND_URL || '*' } });
+const io = new Server(server, { cors: corsOptions });
 const db = new Pool({ connectionString: process.env.DATABASE_URL });
-app.use(cors());
-app.use(express.json());
+app.use(cors(corsOptions));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  next();
+});
+app.use(express.json({ limit: '1mb' }));
 const query = (text, params = []) => db.query(text, params);
 const auth = (roles = []) => (req, res, next) => {
   try {
@@ -31,6 +86,7 @@ const auth = (roles = []) => (req, res, next) => {
 app.use('/api/admin', auth(['admin']));
 require('./kitchen-routes')(app, query, io, db, auth);
 require('./kitchen-performance')(app, query, auth);
+app.use('/api/staff-attendance', attendanceRateLimit);
 require('./routes/staff-attendance-routes')(app, { query, db });
 const { getSetting } = require('./services/settings-service');
 require('./routes/staff-routes')(app, { query, db, auth });
@@ -81,7 +137,7 @@ async function getKitchenQueue(locationType = 'HEAD_OFFICE', branchId = null) {
 }
 
 app.get('/api/health', (req, res) => res.json({ ok: true }));
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', loginRateLimit, async (req, res) => {
   try {
     const { rows } = await query(
       'SELECT u.*,r.name role FROM users u JOIN roles r ON r.id=u.role_id WHERE lower(u.email)=lower($1)',
@@ -1018,7 +1074,7 @@ app.patch('/api/orders/:id/status', auth(['admin']), (req, res) => updateOrderSt
 app.patch('/api/admin/orders/:id/status', auth(['admin']), (req, res) => updateOrderStatus(req, res, 'orders'));
 
 
-app.get('/api/kitchen/orders', async (req, res) => {
+app.get('/api/kitchen/orders', requireKdsDevice, async (req, res) => {
   try {
     const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
     if (!['HEAD_OFFICE', 'BRANCH'].includes(locationType)) return res.status(400).json({ message: 'Invalid kitchen location' });
@@ -1028,7 +1084,7 @@ app.get('/api/kitchen/orders', async (req, res) => {
     res.json({ ...current, locationType, branchId });
   } catch (e) { res.status(500).json({ message: e.message }) }
 });
-app.get('/api/kitchen/orders/completed', async (req, res) => {
+app.get('/api/kitchen/orders/completed', requireKdsDevice, async (req, res) => {
   try {
     const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
     if (!['HEAD_OFFICE', 'BRANCH'].includes(locationType)) return res.status(400).json({ message: 'Invalid kitchen location' });
@@ -1040,6 +1096,11 @@ app.get('/api/kitchen/orders/completed', async (req, res) => {
     res.json({ orders: rows, locationType, branchId });
   } catch (e) { res.status(500).json({ message: e.message }) }
 });
-app.patch('/api/kitchen/orders/:id/status', (req, res) => updateOrderStatus(req, res, 'kitchen'));
+app.patch('/api/kitchen/orders/:id/status', requireKdsDevice, (req, res) => updateOrderStatus(req, res, 'kitchen'));
 io.on('connection', socket => socket.emit('system:ready'));
+const jwtSecret = String(process.env.JWT_SECRET || '');
+if (!jwtSecret) throw new Error('JWT_SECRET must be configured');
+if (process.env.NODE_ENV === 'production' && jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters in production');
+if (process.env.NODE_ENV === 'production' && !kdsDeviceKey) throw new Error('KDS_DEVICE_KEY must be configured in production');
+if (!kdsDeviceKey) console.warn('WARNING: KDS_DEVICE_KEY is not configured; KDS device protection is disabled outside production.');
 server.listen(process.env.PORT || 4000, () => console.log('SHAWARMAHOLICS API running'));
