@@ -28,7 +28,7 @@ export default function MasterPricing({ adminToken, onBack }) {
     setStatus('loading');
     setError('');
     try {
-      const master = await request('/admin/menu/items');
+      const master = await request('/admin/menu/items', {}, activeToken);
       setItems(master.items || []);
       if (activeToken) {
         const data = await request('/admin/branch-pricing/proposals', {}, activeToken);
