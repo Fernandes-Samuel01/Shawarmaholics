@@ -8,11 +8,11 @@ function MetricCard({ label, value, detail, icon: Icon, tone = '' }) {
   return <article className={`performance-metric ${tone}`}><div className="performance-metric-icon"><Icon /></div><div><small>{label}</small><strong>{value}</strong>{detail && <span>{detail}</span>}</div></article>;
 }
 
-export default function KitchenPerformance() {
+export default function KitchenPerformance({ locationType = 'HEAD_OFFICE', branchId = null }) {
   const [state, setState] = useState({ status: 'loading', data: null });
   const load = useCallback(async () => {
     setState({ status: 'loading', data: null });
-    try { const response = await fetch(`${API}/kitchen/performance?period=today`); if (!response.ok) throw new Error('Request failed'); setState({ status: 'ready', data: await response.json() }); }
+    try { const token = sessionStorage.getItem('shawarmaholics_admin_token') || sessionStorage.getItem('shawarmaholics_cook_token') || ''; const query = new URLSearchParams({ period: 'today' }); if (locationType === 'BRANCH' && branchId) query.set('branchId', branchId); const response = await fetch(`${API}/kitchen/performance?${query.toString()}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} }); if (!response.ok) throw new Error('Request failed'); setState({ status: 'ready', data: await response.json() }); }
     catch { setState({ status: 'error', data: null }); }
   }, []);
   useEffect(() => { load(); }, [load]);
