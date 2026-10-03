@@ -2,3 +2,4 @@ node_modules/
 backend/.env 
 Shawarmaholics-Restaurant-Management-System.zip 
 frontend/dist/ 
+frontend/.env
