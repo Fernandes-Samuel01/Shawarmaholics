@@ -43,6 +43,7 @@ const rateLimit = ({ windowMs, max, message = 'Too many requests. Please try aga
 
 const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: 'Too many login attempts. Please try again later.' });
 const attendanceRateLimit = rateLimit({ windowMs: 60 * 1000, max: 10, message: 'Too many attendance requests. Please try again later.' });
+const kdsRateLimit = rateLimit({ windowMs: 60 * 1000, max: 120, message: 'Too many KDS requests. Please try again later.' });
 
 const kdsDeviceKey = String(process.env.KDS_DEVICE_KEY || '').trim();
 const isValidKdsKey = supplied => {
@@ -58,7 +59,7 @@ const requireKdsDevice = (req, res, next) => {
   if (!isValidKdsKey(supplied)) {
     return res.status(401).json({ message: 'KDS device authorization required' });
   }
-  next();
+  return kdsRateLimit(req, res, next);
 };
 const server = http.createServer(app);
 const io = new Server(server, { cors: corsOptions });
