@@ -16,7 +16,7 @@ app.use(express.json());
 const query = (text, params = []) => db.query(text, params);
 const auth = (roles = []) => (req, res, next) => {
   try {
-    const token = (req.headers.authorization || '').replace(/^Bearer\\s+/i, '').trim();
+    const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     if (!token) return res.status(401).json({ message: 'Authentication required' });
     const user = jwt.verify(token, process.env.JWT_SECRET);
     const role = String(user.role || '').toLowerCase();
