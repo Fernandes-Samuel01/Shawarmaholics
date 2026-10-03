@@ -1,5 +1,18 @@
-module.exports = function registerKitchenRoutes(app, query, io, db) {
-  app.get('/api/inventory', async (req, res) => {
+module.exports = function registerKitchenRoutes(app, query, io, db, auth) {
+  const authorizeKitchenLocation = (req, res, locationType, branchId) => {
+    if (req.user?.role === 'admin') return true;
+    if (req.user?.role !== 'cook') {
+      res.status(403).json({ message: 'Only Admin or Cook can access kitchen operations' });
+      return false;
+    }
+    if (locationType !== 'BRANCH' || Number(req.user.branch_id) !== Number(branchId)) {
+      res.status(403).json({ message: 'Cook is not assigned to this kitchen location' });
+      return false;
+    }
+    return true;
+  };
+
+  app.get('/api/inventory', auth(['admin','cook']), async (req, res) => {
     try {
       const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
       const branchId = locationType === 'BRANCH' ? Number(req.query.branchId) : null;
@@ -9,6 +22,7 @@ module.exports = function registerKitchenRoutes(app, query, io, db) {
       if (locationType === 'BRANCH' && (!Number.isInteger(branchId) || branchId < 1)) {
         return res.status(400).json({ message: 'A valid kitchen branch is required' });
       }
+      if (!authorizeKitchenLocation(req, res, locationType, branchId)) return;
 
       let branch = null;
       if (locationType === 'BRANCH') {
@@ -39,7 +53,7 @@ module.exports = function registerKitchenRoutes(app, query, io, db) {
     }
   });
 
-  app.patch('/api/inventory/:id', async (req, res) => {
+  app.patch('/api/inventory/:id', auth(['admin','cook']), async (req, res) => {
     const itemId = Number(req.params.id);
     const locationType = String(req.body?.locationType || 'HEAD_OFFICE').toUpperCase();
     const branchId = locationType === 'BRANCH' ? Number(req.body?.branchId) : null;
@@ -60,6 +74,7 @@ module.exports = function registerKitchenRoutes(app, query, io, db) {
     if (!Number.isFinite(quantity) || quantity < 0) {
       return res.status(400).json({ message: 'Invalid inventory quantity' });
     }
+    if (!authorizeKitchenLocation(req, res, locationType, branchId)) return;
 
     const client = await db.connect();
     try {
