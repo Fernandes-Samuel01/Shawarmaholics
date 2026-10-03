@@ -43,7 +43,7 @@ async function resolveScope(query, req) {
   }
 }
 
-module.exports = function registerSettingsRoutes(app, { query, db, auth, io }) {
+module.exports = function registerSettingsRoutes(app, { query, db, auth, io, kdsIo }) {
   app.get('/api/settings/public', async (req, res) => {
     const resolved = await resolveScope(query, req);
     if (resolved.error) return res.status(resolved.error.status).json({ message: resolved.error.message });
@@ -119,6 +119,7 @@ module.exports = function registerSettingsRoutes(app, { query, db, auth, io }) {
           branchId: resolved.scope.branchId,
           branch: resolved.branch
         });
+        if (kdsIo) kdsIo.emit('settings:updated', { settings: publicSettings, locationType: resolved.scope.locationType, branchId: resolved.scope.branchId, branch: resolved.branch });
       }
       res.json({ message: 'Settings saved successfully', settings, locationType: resolved.scope.locationType, branchId: resolved.scope.branchId, branch: resolved.branch });
     } catch (error) {
