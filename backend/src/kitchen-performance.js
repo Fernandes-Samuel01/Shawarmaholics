@@ -5,10 +5,18 @@ function formatPrepTime(seconds) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-module.exports = function registerKitchenPerformance(app, query) {
-  app.get('/api/kitchen/performance', async (req, res) => {
+module.exports = function registerKitchenPerformance(app, query, auth) {
+  const authorize = (req, res) => {
+    if (req.user?.role === 'admin') return true;
+    if (req.user?.role === 'cook' && Number(req.user.branch_id) === Number(req.query.branchId)) return true;
+    res.status(403).json({ message: 'Not authorized for this kitchen location' });
+    return false;
+  };
+  app.get('/api/kitchen/performance', auth(['admin','cook']), async (req, res) => {
     const period = String(req.query.period || 'today').toLowerCase();
     if (period !== 'today') return res.status(400).json({ message: 'Unsupported performance period. Use period=today.' });
+    if (!authorize(req, res)) return;
+    const branchId = req.user.role === 'cook' ? Number(req.user.branch_id) : null;
     try {
       const { rows: [metrics] } = await query(`
         SELECT
@@ -20,7 +28,8 @@ module.exports = function registerKitchenPerformance(app, query) {
           COUNT(*) FILTER (WHERE status='completed' AND completed_at >= CURRENT_DATE AND completed_at < CURRENT_DATE + INTERVAL '1 day' AND was_delayed=false)::int AS on_time_orders,
           COUNT(*) FILTER (WHERE status='completed' AND completed_at >= CURRENT_DATE AND completed_at < CURRENT_DATE + INTERVAL '1 day' AND was_delayed=true)::int AS delayed_orders
         FROM orders
-      `);
+        ${branchId ? 'WHERE branch_id=$1' : ''}
+      `, branchId ? [branchId] : []);
       const average = Math.round(Number(metrics.average_prep_time_seconds) || 0);
       const completed = Number(metrics.completed_orders) || 0;
       const onTime = Number(metrics.on_time_orders) || 0;
