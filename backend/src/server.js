@@ -75,6 +75,9 @@ app.use((req, res, next) => {
   res.setHeader('X-Frame-Options', 'DENY');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=()');
+  res.setHeader('Content-Security-Policy', "frame-ancestors 'none'");
+  res.setHeader('Cache-Control', 'no-store');
+  if (process.env.NODE_ENV === 'production') res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
   next();
 });
 app.use(express.json({ limit: '1mb' }));
@@ -83,7 +86,7 @@ const auth = (roles = []) => (req, res, next) => {
   try {
     const token = (req.headers.authorization || '').replace(/^Bearer\s+/i, '').trim();
     if (!token) return res.status(401).json({ message: 'Authentication required' });
-    const user = jwt.verify(token, process.env.JWT_SECRET);
+    const user = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ['HS256'] });
     const role = String(user.role || '').toLowerCase();
     if (roles.length && !roles.map(value => String(value).toLowerCase()).includes(role)) {
       return res.status(403).json({ message: 'Not authorized' });
@@ -104,7 +107,7 @@ require('./routes/branch-pricing-routes')(app, { query, db, auth });
 require('./routes/inventory-routes')(app, { query, db, auth, io });
 require('./routes/analytics-routes')(app, { query, auth });
 require('./routes/report-routes')(app, { query, auth });
-require('./routes/settings-routes')(app, { query, db, auth, io });
+require('./routes/settings-routes')(app, { query, db, auth, io, kdsIo });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
@@ -1114,4 +1117,13 @@ if (!jwtSecret) throw new Error('JWT_SECRET must be configured');
 if (process.env.NODE_ENV === 'production' && jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters in production');
 if (process.env.NODE_ENV === 'production' && !kdsDeviceKey) throw new Error('KDS_DEVICE_KEY must be configured in production');
 if (!kdsDeviceKey) console.warn('WARNING: KDS_DEVICE_KEY is not configured; KDS device protection is disabled outside production.');
+app.use((error, req, res, next) => {
+  if (res.headersSent) return next(error);
+  if (error?.message === 'CORS origin not allowed') return res.status(403).json({ message: 'Origin is not allowed' });
+  if (error?.type === 'entity.too.large') return res.status(413).json({ message: 'Request payload is too large' });
+  if (error instanceof SyntaxError && error.status === 400 && 'body' in error) return res.status(400).json({ message: 'Invalid JSON payload' });
+  console.error('Unhandled API error:', error?.message || error);
+  return res.status(500).json({ message: 'Internal server error' });
+});
+
 server.listen(process.env.PORT || 4000, () => console.log('SHAWARMAHOLICS API running'));
