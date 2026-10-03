@@ -3,7 +3,7 @@ import { ArrowLeft, BookOpen, RefreshCw, Search, Clock3, Leaf, Star, Plus, Penci
 import MenuItemCustomizations from './MenuItemCustomizations';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
-const request = async (path, options = {}) => { const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json', ...options.headers }, ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.message || 'Request failed'); error.status = response.status; throw error } return data };
+const request = async (path, options = {}) => { const token = sessionStorage.getItem('shawarmaholics_admin_token') || ''; const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...options.headers }, ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.message || 'Request failed'); error.status = response.status; throw error } return data };
 const money = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR', maximumFractionDigits: 2 });
 
 export default function MasterMenu({ onBack }) {
