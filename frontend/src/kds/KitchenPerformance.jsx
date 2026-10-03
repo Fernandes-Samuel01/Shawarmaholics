@@ -3,6 +3,7 @@ import { AlertTriangle, CheckCircle2, Clock3, RefreshCw, Target } from 'lucide-r
 import { kitchenStatus } from './performanceUtils';
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
+const KDS_DEVICE_KEY = import.meta.env.VITE_KDS_DEVICE_KEY || '';
 
 function MetricCard({ label, value, detail, icon: Icon, tone = '' }) {
   return <article className={`performance-metric ${tone}`}><div className="performance-metric-icon"><Icon /></div><div><small>{label}</small><strong>{value}</strong>{detail && <span>{detail}</span>}</div></article>;
@@ -12,7 +13,7 @@ export default function KitchenPerformance({ locationType = 'HEAD_OFFICE', branc
   const [state, setState] = useState({ status: 'loading', data: null });
   const load = useCallback(async () => {
     setState({ status: 'loading', data: null });
-    try { const query = new URLSearchParams({ period: 'today' }); if (locationType === 'BRANCH' && branchId) query.set('branchId', branchId); const response = await fetch(`${API}/kitchen/performance?${query.toString()}`); if (!response.ok) throw new Error('Request failed'); setState({ status: 'ready', data: await response.json() }); }
+    try { const query = new URLSearchParams({ period: 'today' }); if (locationType === 'BRANCH' && branchId) query.set('branchId', branchId); const response = await fetch(`${API}/kitchen/performance?${query.toString()}`, { headers: KDS_DEVICE_KEY ? { 'X-KDS-Device-Key': KDS_DEVICE_KEY } : {} }); if (!response.ok) throw new Error('Request failed'); setState({ status: 'ready', data: await response.json() }); }
     catch { setState({ status: 'error', data: null }); }
   }, [locationType, branchId]);
   useEffect(() => { load(); }, [load]);
