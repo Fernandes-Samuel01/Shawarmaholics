@@ -14,7 +14,7 @@ export default function KitchenPerformance({ locationType = 'HEAD_OFFICE', branc
     setState({ status: 'loading', data: null });
     try { const token = sessionStorage.getItem('shawarmaholics_admin_token') || sessionStorage.getItem('shawarmaholics_cook_token') || ''; const query = new URLSearchParams({ period: 'today' }); if (locationType === 'BRANCH' && branchId) query.set('branchId', branchId); const response = await fetch(`${API}/kitchen/performance?${query.toString()}`, { headers: token ? { Authorization: 'Bearer ' + token } : {} }); if (!response.ok) throw new Error('Request failed'); setState({ status: 'ready', data: await response.json() }); }
     catch { setState({ status: 'error', data: null }); }
-  }, []);
+  }, [locationType, branchId]);
   useEffect(() => { load(); }, [load]);
   useEffect(() => { if (state.status !== 'ready') return; const id = setInterval(load, 60000); return () => clearInterval(id); }, [load, state.status]);
 
