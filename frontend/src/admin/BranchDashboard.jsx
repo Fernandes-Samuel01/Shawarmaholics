@@ -4,13 +4,6 @@ import AnalyticsDashboard from './AnalyticsDashboard';
 import SettingsDashboard from './SettingsDashboard';
 import { ArrowLeft, BarChart3, Building2, ChevronRight, ExternalLink, Package, Settings, ShoppingBag, Users, ReceiptText } from 'lucide-react';
 
-const summary = [
-  { label: "Today's Revenue", value: '₹48,650' },
-  { label: "Today's Orders", value: '286' },
-  { label: 'Average Order Value', value: '₹170' },
-  { label: 'Customers Today', value: '241' }
-];
-
 const management = [
   { key: 'pricing', label: 'Branch Pricing', icon: ReceiptText, description: 'Propose branch selling prices for Head Office approval.' },
   { key: 'orders', label: 'Orders', icon: ShoppingBag, description: 'View and manage orders for this branch.' },
@@ -46,14 +39,10 @@ export default function BranchDashboard({ branch, adminToken, onBack }) {
         <div className="admin-branch-identity-details"><span className="admin-branch-type">{branch.type}</span><span>{branch.code}</span><span>{branch.city}, {branch.state}</span></div>
       </div>
       <div className="admin-branch-header-actions">
-        <button className="admin-dashboard-kds-button" type="button" onClick={() => window.open(`/?view=kds&locationType=BRANCH&branchId=${encodeURIComponent(branch.id)}`, '_blank', 'noopener,noreferrer')} disabled={!branch.is_active}><ExternalLink /> Open KDS</button>
+        <button className="admin-dashboard-kds-button" type="button" onClick={() => window.open(`/?view=kds&locationType=BRANCH&branchId=${encodeURIComponent(branch.id)}`, "_blank", "noopener,noreferrer")} disabled={!branch.is_active}><ExternalLink /> Open KDS</button>
         <span className={`admin-branch-status ${branch.is_active ? 'is-active' : 'is-inactive'}`}><i /> {branch.is_active ? 'Active' : 'Inactive'}</span>
       </div>
     </header>
-    <section className="admin-dashboard-section" aria-labelledby="performance-title">
-      <div className="admin-section-heading"><span className="admin-panel-eyebrow">TODAY</span><h2 id="performance-title">Performance summary</h2><p>Temporary demo values until branch analytics are connected.</p></div>
-      <div className="admin-summary-grid">{summary.map(item => <article className="admin-summary-card" key={item.label}><span>{item.label}</span><strong>{item.value}</strong><small>Demo value</small></article>)}</div>
-    </section>
     <section className="admin-dashboard-section" aria-labelledby="management-title">
       <div className="admin-section-heading"><span className="admin-panel-eyebrow">OPERATIONS</span><h2 id="management-title">Branch Management</h2><p>Manage day-to-day operations for {branch.name}.</p></div>
       <div className="admin-management-grid">{management.map(item => { const Icon = item.icon; return <button className="admin-management-card" key={item.key} type="button" onClick={() => setActiveModule(item.key)}><span className="admin-management-icon"><Icon /></span><span className="admin-management-copy"><strong>{item.label}</strong><small>{item.description}</small></span><ChevronRight /></button> })}</div>

@@ -15,10 +15,3 @@ CREATE TABLE IF NOT EXISTS branches (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
-INSERT INTO branches (code, name, type, city, state, country, is_active)
-VALUES
-  ('SH-AW-001', 'Andheri West', 'OUTLET', 'Mumbai', 'Maharashtra', 'India', TRUE),
-  ('SH-BA-001', 'Bandra', 'FRANCHISE', 'Mumbai', 'Maharashtra', 'India', TRUE),
-  ('SH-PO-001', 'Powai', 'OUTLET', 'Mumbai', 'Maharashtra', 'India', TRUE),
-  ('SH-JU-001', 'Juhu', 'FRANCHISE', 'Mumbai', 'Maharashtra', 'India', TRUE)
-ON CONFLICT (code) DO NOTHING;
