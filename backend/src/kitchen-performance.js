@@ -5,8 +5,8 @@ function formatPrepTime(seconds) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-module.exports = function registerKitchenPerformance(app, query) {
-  app.get('/api/kitchen/performance', async (req, res) => {
+module.exports = function registerKitchenPerformance(app, query, requireKdsDevice) {
+  app.get('/api/kitchen/performance', requireKdsDevice, async (req, res) => {
     const period = String(req.query.period || 'today').toLowerCase();
     if (period !== 'today') return res.status(400).json({ message: 'Unsupported performance period. Use period=today.' });
     const branchId = req.query.branchId == null || req.query.branchId === '' ? null : Number(req.query.branchId);
