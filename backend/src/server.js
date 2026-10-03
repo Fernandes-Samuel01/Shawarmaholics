@@ -45,13 +45,17 @@ const loginRateLimit = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, message: '
 const attendanceRateLimit = rateLimit({ windowMs: 60 * 1000, max: 10, message: 'Too many attendance requests. Please try again later.' });
 
 const kdsDeviceKey = String(process.env.KDS_DEVICE_KEY || '').trim();
+const isValidKdsKey = supplied => {
+  if (!kdsDeviceKey || !supplied || supplied.length !== kdsDeviceKey.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(kdsDeviceKey));
+};
 const requireKdsDevice = (req, res, next) => {
   if (!kdsDeviceKey) {
     if (process.env.NODE_ENV === 'production') return res.status(503).json({ message: 'KDS device security is not configured' });
     return next();
   }
   const supplied = String(req.headers['x-kds-device-key'] || '');
-  if (!supplied || supplied.length !== kdsDeviceKey.length || !crypto.timingSafeEqual(Buffer.from(supplied), Buffer.from(kdsDeviceKey))) {
+  if (!isValidKdsKey(supplied)) {
     return res.status(401).json({ message: 'KDS device authorization required' });
   }
   next();
@@ -59,6 +63,12 @@ const requireKdsDevice = (req, res, next) => {
 const server = http.createServer(app);
 const io = new Server(server, { cors: corsOptions });
 const db = new Pool({ connectionString: process.env.DATABASE_URL });
+const kdsIo = io.of('/kds');
+kdsIo.use((socket, next) => {
+  if (!kdsDeviceKey && process.env.NODE_ENV !== 'production') return next();
+  if (isValidKdsKey(String(socket.handshake.auth?.kdsDeviceKey || ''))) return next();
+  return next(new Error('KDS device authorization required'));
+});
 app.use(cors(corsOptions));
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -84,7 +94,7 @@ const auth = (roles = []) => (req, res, next) => {
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
 app.use('/api/admin', auth(['admin']));
-require('./kitchen-routes')(app, query, io, db, auth, requireKdsDevice);
+require('./kitchen-routes')(app, query, kdsIo, db, auth, requireKdsDevice);
 require('./kitchen-performance')(app, query, requireKdsDevice);
 app.use('/api/staff-attendance', attendanceRateLimit);
 require('./routes/staff-attendance-routes')(app, { query, db });
@@ -1020,7 +1030,7 @@ app.post('/api/orders', async (req, res) => {
     await client.query('COMMIT');
 
     const result = { ...order, items: storedItems };
-    io.emit(orderStatus === 'confirmed' ? 'order:new' : 'order:awaiting_payment', result);
+    kdsIo.emit(orderStatus === 'confirmed' ? 'order:new' : 'order:awaiting_payment', result);
     if (orderStatus === 'confirmed') await getKitchenQueue(branchId ? 'BRANCH' : 'HEAD_OFFICE', branchId);
     res.status(201).json({ order: { ...result, estimated_minutes: 12 } });
   } catch (e) {
@@ -1064,8 +1074,8 @@ async function updateOrderStatus(req, res, source = 'orders') {
       if (!rows[0]) return res.status(409).json({ message: 'Order is already completed or unavailable' });
       result = rows[0];
     }
-    io.emit(status === 'preparing' ? 'order:activated' : 'order:completed', result);
-    io.emit('order:updated', result);
+    kdsIo.emit(status === 'preparing' ? 'order:activated' : 'order:completed', result);
+    kdsIo.emit('order:updated', result);
     const current = await getKitchenQueue(source === 'kitchen' ? kitchenLocationType : 'HEAD_OFFICE', kitchenBranchId);
     res.json({ success: true, order: result, completedOrder: status === 'completed' ? result : undefined, queue: current.queue });
   } catch (e) { res.status(500).json({ message: e.message }) }
@@ -1098,6 +1108,7 @@ app.get('/api/kitchen/orders/completed', requireKdsDevice, async (req, res) => {
 });
 app.patch('/api/kitchen/orders/:id/status', requireKdsDevice, (req, res) => updateOrderStatus(req, res, 'kitchen'));
 io.on('connection', socket => socket.emit('system:ready'));
+kdsIo.on('connection', socket => socket.emit('system:ready'));
 const jwtSecret = String(process.env.JWT_SECRET || '');
 if (!jwtSecret) throw new Error('JWT_SECRET must be configured');
 if (process.env.NODE_ENV === 'production' && jwtSecret.length < 32) throw new Error('JWT_SECRET must be at least 32 characters in production');
