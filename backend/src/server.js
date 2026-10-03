@@ -84,8 +84,8 @@ const auth = (roles = []) => (req, res, next) => {
   } catch (e) { res.status(401).json({ message: 'Authentication required' }); }
 };
 app.use('/api/admin', auth(['admin']));
-require('./kitchen-routes')(app, query, io, db, auth);
-require('./kitchen-performance')(app, query, auth);
+require('./kitchen-routes')(app, query, io, db, auth, requireKdsDevice);
+require('./kitchen-performance')(app, query, requireKdsDevice);
 app.use('/api/staff-attendance', attendanceRateLimit);
 require('./routes/staff-attendance-routes')(app, { query, db });
 const { getSetting } = require('./services/settings-service');
