@@ -5,18 +5,12 @@ function formatPrepTime(seconds) {
   return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(total % 60).padStart(2, '0')}`;
 }
 
-module.exports = function registerKitchenPerformance(app, query, auth) {
-  const authorize = (req, res) => {
-    if (req.user?.role === 'admin') return true;
-    if (req.user?.role === 'cook' && Number(req.user.branch_id) === Number(req.query.branchId)) return true;
-    res.status(403).json({ message: 'Not authorized for this kitchen location' });
-    return false;
-  };
-  app.get('/api/kitchen/performance', auth(['admin','cook']), async (req, res) => {
+module.exports = function registerKitchenPerformance(app, query) {
+  app.get('/api/kitchen/performance', async (req, res) => {
     const period = String(req.query.period || 'today').toLowerCase();
     if (period !== 'today') return res.status(400).json({ message: 'Unsupported performance period. Use period=today.' });
-    if (!authorize(req, res)) return;
-    const branchId = req.user.role === 'cook' ? Number(req.user.branch_id) : null;
+    const branchId = req.query.branchId == null || req.query.branchId === '' ? null : Number(req.query.branchId);
+    if (branchId !== null && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' });
     try {
       const { rows: [metrics] } = await query(`
         SELECT
