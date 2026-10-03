@@ -1,5 +1,5 @@
-module.exports = function registerKitchenRoutes(app, query, io, db, auth) {
-  app.get('/api/inventory', async (req, res) => {
+module.exports = function registerKitchenRoutes(app, query, io, db, auth, requireKdsDevice) {
+  app.get('/api/inventory', requireKdsDevice, async (req, res) => {
     try {
       const locationType = String(req.query.locationType || 'HEAD_OFFICE').toUpperCase();
       const branchId = locationType === 'BRANCH' ? Number(req.query.branchId) : null;
@@ -39,7 +39,7 @@ module.exports = function registerKitchenRoutes(app, query, io, db, auth) {
     }
   });
 
-  app.patch('/api/inventory/:id', async (req, res) => {
+  app.patch('/api/inventory/:id', requireKdsDevice, async (req, res) => {
     const itemId = Number(req.params.id);
     const locationType = String(req.body?.locationType || 'HEAD_OFFICE').toUpperCase();
     const branchId = locationType === 'BRANCH' ? Number(req.body?.branchId) : null;
