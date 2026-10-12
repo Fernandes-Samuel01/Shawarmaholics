@@ -240,12 +240,10 @@ export default function StaffManagement({ adminToken, onBack, branchId = null, b
         <Search />
         <input value={search} onChange={event => setSearch(event.target.value)} placeholder="Search name, phone, email or role" />
       </label>
-      <label>
+      {!branchScoped && <label>
         <span>LOCATION</span>
-        <select value={locationFilter} onChange={event => setLocationFilter(event.target.value)}>
-          {!branchScoped && <><option value="ALL">All locations</option><option value="HEAD_OFFICE">Head Office</option>{branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}</>}
-        </select>
-      </label>
+        <select value={locationFilter} onChange={event => setLocationFilter(event.target.value)}><option value="ALL">All locations</option><option value="HEAD_OFFICE">Head Office</option>{branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}</select>
+      </label>}
       <label>
         <span>STATUS</span>
         <select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
