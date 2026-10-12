@@ -18,7 +18,8 @@ const formatTime = value => value ? new Date(value).toLocaleString('en-IN', { da
 
 const statuses = ['ALL', 'awaiting_payment', 'confirmed', 'new', 'preparing', 'completed', 'cancelled'];
 
-export default function AdminOrders({ adminToken, onBack }) {
+export default function AdminOrders({ adminToken, onBack, branchId: scopedBranchId = null, branchName = null }) {
+  const branchScoped = scopedBranchId != null;
   const [orders, setOrders] = useState([]);
   const [branches, setBranches] = useState([]);
   const [status, setStatus] = useState('ALL');
@@ -35,14 +36,15 @@ export default function AdminOrders({ adminToken, onBack }) {
     try {
       const params = new URLSearchParams();
       if (status !== 'ALL') params.set('status', status);
-      if (branchId !== 'ALL') params.set('branchId', branchId);
+      if (branchScoped) params.set('branchId', String(scopedBranchId));
+      else if (branchId !== 'ALL') params.set('branchId', branchId);
       if (search.trim()) params.set('search', search.trim());
       const [orderData, branchData] = await Promise.all([
         request(`/admin/orders?${params.toString()}`, {}, adminToken),
-        branches.length ? Promise.resolve({ branches }) : request('/branches')
+        branchScoped || branches.length ? Promise.resolve({ branches }) : request('/branches')
       ]);
-      setOrders(orderData.orders || []);
-      if (!branches.length) setBranches(branchData.branches || []);
+      setOrders((orderData.orders || []).filter(order => !branchScoped || Number(order.branch_id) === Number(scopedBranchId)));
+      if (!branchScoped && !branches.length) setBranches(branchData.branches || []);
     } catch (e) {
       setError(e.message);
     } finally {
@@ -50,7 +52,7 @@ export default function AdminOrders({ adminToken, onBack }) {
     }
   };
 
-  useEffect(() => { load(); }, [status, branchId]);
+  useEffect(() => { load(); }, [status, branchId, scopedBranchId]);
 
   const selected = useMemo(() => orders.find(order => Number(order.id) === Number(selectedId)) || null, [orders, selectedId]);
 
@@ -81,9 +83,9 @@ export default function AdminOrders({ adminToken, onBack }) {
 
     <header className="admin-orders-header">
       <div>
-        <span className="admin-panel-eyebrow">HEAD OFFICE · OPERATIONS</span>
-        <h1 id="admin-orders-title">Orders Management</h1>
-        <p>View orders across all branches, inspect order details and advance active orders through the existing workflow.</p>
+        <span className="admin-panel-eyebrow">{branchScoped ? `${branchName || 'BRANCH'} · OPERATIONS` : 'HEAD OFFICE · OPERATIONS'}</span>
+        <h1 id="admin-orders-title">{branchScoped ? 'Branch Orders' : 'Orders Management'}</h1>
+        <p>{branchScoped ? `View and manage orders for ${branchName || 'this branch'} only.` : 'View orders across all branches, inspect order details and advance active orders through the existing workflow.'}</p>
       </div>
       <button className="admin-retry-button" type="button" onClick={load}><RefreshCw /> Refresh</button>
     </header>
@@ -93,7 +95,7 @@ export default function AdminOrders({ adminToken, onBack }) {
     {adminToken && <section className="admin-orders-toolbar" aria-label="Order filters">
       <label className="admin-orders-search"><Search /><input value={search} onChange={event => setSearch(event.target.value)} onKeyDown={event => event.key === 'Enter' && load()} placeholder="Search order number" aria-label="Search order number" /></label>
       <label><span>Status</span><select value={status} onChange={event => setStatus(event.target.value)}>{statuses.map(value => <option value={value} key={value}>{value === 'ALL' ? 'All statuses' : statusLabel(value)}</option>)}</select></label>
-      <label><span>Branch</span><select value={branchId} onChange={event => setBranchId(event.target.value)}><option value="ALL">All branches</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.name}</option>)}</select></label>
+      {!branchScoped && <label><span>Branch</span><select value={branchId} onChange={event => setBranchId(event.target.value)}><option value="ALL">All branches</option>{branches.map(branch => <option value={branch.id} key={branch.id}>{branch.name}</option>)}</select></label>}
     </section>}
 
     {error && <div className="admin-branch-feedback admin-branch-feedback-error" role="alert">{error}</div>}
