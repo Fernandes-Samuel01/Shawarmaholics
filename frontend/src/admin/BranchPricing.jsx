@@ -1,3 +1,4 @@
+import './pricing-polish.css';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, CheckCircle2, Clock3, IndianRupee, LoaderCircle, RefreshCw, XCircle } from 'lucide-react';
 
