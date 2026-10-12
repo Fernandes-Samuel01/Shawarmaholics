@@ -79,7 +79,7 @@ export default function AdminOrders({ adminToken, onBack, branchId: scopedBranch
   };
 
   return <section className="admin-orders-page" aria-labelledby="admin-orders-title">
-    <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Head Office</button>
+    <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to {branchScoped ? 'Branch Dashboard' : 'Head Office'}</button>
 
     <header className="admin-orders-header">
       <div>
