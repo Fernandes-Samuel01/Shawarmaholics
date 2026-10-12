@@ -14,6 +14,7 @@ module.exports = function registerBranchAvailabilityRoutes(app, { query, db, aut
         FROM menu_items mi
         LEFT JOIN menu_categories mc ON mc.id=mi.category_id
         LEFT JOIN branch_menu_availability bma ON bma.menu_item_id=mi.id AND bma.branch_id=$1
+        WHERE mi.is_active=true AND mi.available=true
         ORDER BY mc.position ASC NULLS LAST,mc.name ASC,mi.name ASC,mi.id ASC
       `, [branchId]);
       res.json({ branchId, items: rows });
