@@ -110,6 +110,7 @@ require('./routes/analytics-routes')(app, { query, auth });
 require('./routes/report-routes')(app, { query, auth });
 require('./routes/settings-routes')(app, { query, db, auth, io, kdsIo });
 require('./routes/branch-routes')(app, { query, db });
+require('./routes/branch-availability-routes')(app, { query, db, auth });
 
 const orderQuery = `SELECT o.*,COALESCE(json_agg(json_build_object('id',oi.id,'name',oi.item_name,'quantity',oi.quantity,'unit_price',oi.unit_price,'customizations',oi.customizations)) FILTER(WHERE oi.id IS NOT NULL),'[]') items FROM orders o LEFT JOIN order_items oi ON oi.order_id=o.id`;
 const kitchenOrderQuery = condition => `${orderQuery} WHERE ${condition} GROUP BY o.id ORDER BY o.created_at ASC,o.id ASC`;
@@ -722,7 +723,7 @@ app.get('/api/kiosk/menu', async (req, res) => {
     res.status(500).json({ message: 'Unable to load kiosk menu' });
   }
 });
-app.get('/api/menu', async (req, res) => { try { const { rows } = await query('SELECT mi.*,mc.name category FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id WHERE mi.available AND mi.is_active=true ORDER BY mc.position,mi.name'); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
+app.get('/api/menu', async (req, res) => { try { const branchId = req.query.branchId ? Number(req.query.branchId) : null; if (req.query.branchId && (!Number.isInteger(branchId) || branchId < 1)) return res.status(400).json({ message: 'Invalid branch ID' }); const { rows } = await query(\`SELECT mi.*,mc.name category FROM menu_items mi JOIN menu_categories mc ON mc.id=mi.category_id LEFT JOIN branch_menu_availability bma ON bma.menu_item_id=mi.id AND bma.branch_id=$1 WHERE mi.available AND mi.is_active=true AND ($1::integer IS NULL OR COALESCE(bma.is_available,mi.available)=true) ORDER BY mc.position,mi.name\`, [branchId]); res.json({ items: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 app.get('/api/orders', async (req, res) => { try { const states = (req.query.status || '').split(',').filter(Boolean); const sql = `${orderQuery} ${states.length ? 'WHERE o.status=ANY($1)' : ''} GROUP BY o.id ORDER BY o.created_at DESC`; const { rows } = await query(sql, states.length ? [states] : []); res.json({ orders: rows }) } catch (e) { res.status(500).json({ message: e.message }) } });
 
 app.get('/api/admin/orders', auth(['admin']), async (req, res) => {
@@ -824,7 +825,7 @@ app.post('/api/orders', async (req, res) => {
       }
 
       const { rows: [menuItem] } = await client.query(
-        'SELECT mi.id,mi.name,COALESCE((SELECT bmp.effective_price FROM branch_menu_prices bmp WHERE bmp.menu_item_id=mi.id AND bmp.branch_id=$2),mi.price) price,mi.is_active,mi.available FROM menu_items mi WHERE mi.id=$1 FOR UPDATE',
+        'SELECT mi.id,mi.name,COALESCE((SELECT bmp.effective_price FROM branch_menu_prices bmp WHERE bmp.menu_item_id=mi.id AND bmp.branch_id=$2),mi.price) price,mi.is_active,mi.available,COALESCE((SELECT bma.is_available FROM branch_menu_availability bma WHERE bma.menu_item_id=mi.id AND bma.branch_id=$2),mi.available) branch_available FROM menu_items mi WHERE mi.id=$1 FOR UPDATE',
         [menuItemId, branchId]
       );
 
@@ -836,7 +837,7 @@ app.post('/api/orders', async (req, res) => {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'Menu item is archived' });
       }
-      if (!menuItem.available) {
+      if (!menuItem.available || (branchId !== null && !menuItem.branch_available)) {
         await client.query('ROLLBACK');
         return res.status(400).json({ message: 'Menu item is unavailable' });
       }
