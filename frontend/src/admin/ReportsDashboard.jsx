@@ -158,9 +158,9 @@ export default function ReportsDashboard({ adminToken, onBack, branchId = null, 
         <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to {branchScoped ? 'Branch Dashboard' : 'Head Office'}</button>
         <span className="admin-panel-eyebrow">{branchScoped ? `${branchName || 'BRANCH'} REPORTS` : 'HEAD OFFICE REPORTS'}</span>
         <h1 id="reports-title">{branchScoped ? `${branchName || 'Branch'} Reports` : 'Reports'}</h1>
-        <p>Generate structured operational and financial reports for the selected period. Head Office reports are consolidated across operating locations.</p>
+        <p>{branchScoped ? `Generate operational and financial reports for ${branchName || 'this branch'} only.` : 'Generate structured operational and financial reports consolidated across operating locations.'}</p>
       </div>
-      <div className="admin-analytics-scope"><Store /> Head Office</div>
+      <div className="admin-analytics-scope"><Store /> {branchScoped ? branchName || 'Branch' : 'Head Office'}</div>
     </header>
 
     <div className="admin-report-type-grid">
