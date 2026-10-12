@@ -3,7 +3,6 @@ import BranchPricing from './BranchPricing';
 import AdminOrders from './AdminOrders';
 import InventoryManagement from './InventoryManagement';
 import StaffManagement from './StaffManagement';
-import ReportsDashboard from './ReportsDashboard';
 import BranchMenuAvailability from './BranchMenuAvailability';
 import AnalyticsDashboard from './AnalyticsDashboard';
 import SettingsDashboard from './SettingsDashboard';
@@ -15,7 +14,6 @@ const management = [
   { key: 'availability', label: 'Menu Availability', icon: Building2, description: 'Control which master menu items are available at this branch.' },
   { key: 'inventory', label: 'Inventory', icon: Package, description: 'Monitor stock and inventory for this branch.' },
   { key: 'staff', label: 'Staff', icon: Users, description: 'Manage branch staff and attendance.' },
-  { key: 'reports', label: 'Reports', icon: ReceiptText, description: 'Generate reports for this branch and export them as CSV.' },
   { key: 'analytics', label: 'Analytics', icon: BarChart3, description: 'View branch performance and business insights.' },
   { key: 'settings', label: 'Branch Settings', icon: Settings, description: 'Configure this branch kiosk, KDS and operational behavior.' }
 ];
@@ -28,7 +26,6 @@ export default function BranchDashboard({ branch, adminToken, onBack }) {
   if (activeModule === 'availability') return <BranchMenuAvailability branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'inventory') return <InventoryManagement adminToken={adminToken} branchId={branch.id} branchName={branch.name} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'staff') return <StaffManagement adminToken={adminToken} branchId={branch.id} branchName={branch.name} onBack={() => setActiveModule(null)} />;
-  if (activeModule === 'reports') return <ReportsDashboard adminToken={adminToken} branchId={branch.id} branchName={branch.name} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'analytics') return <AnalyticsDashboard branch={branch} adminToken={adminToken} onBack={() => setActiveModule(null)} />;
   if (activeModule === 'settings') return <SettingsDashboard adminToken={adminToken} locationType="BRANCH" branchId={branch.id} locationName={branch.name} onBack={() => setActiveModule(null)} />;
   if (selected) return <section className="admin-branch-module admin-branch-state" aria-live="polite">
