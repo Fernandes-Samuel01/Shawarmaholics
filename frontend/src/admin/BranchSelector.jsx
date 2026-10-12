@@ -22,18 +22,20 @@ export default function BranchSelector({ adminToken }) {
   const changeStatus=async b=>{setActionId(b.id);setFormError('');try{await api(`/admin/branches/${b.id}/${b.is_active?'deactivate':'activate'}`,adminToken,{method:'PATCH'});loadBranches();if(selectedBranch?.id===b.id)setSelectedBranch({...b,is_active:!b.is_active})}catch(e){setFormError(e.message)}finally{setActionId(null)}};
   const remove=async b=>{if(!window.confirm(`Delete ${b.name}? This is allowed only when the branch has no dependent business data.`))return;setActionId(b.id);setFormError('');try{await api('/admin/branches/'+b.id,adminToken,{method:'DELETE'});loadBranches();setSelectedBranch(null)}catch(e){setFormError(e.message)}finally{setActionId(null)}};
 
-  if(view==='create') return <section className="admin-branch-placeholder admin-branch-state">
+  if(view==='create') return <section className="admin-branch-placeholder admin-branch-state admin-branch-form-page">
     <button className="admin-back-button" type="button" onClick={()=>setView('existing')}><ArrowLeft/> Back to Branches</button>
-    <span className="admin-panel-eyebrow">{editing?'EDIT BRANCH':'CREATE NEW BRANCH'}</span>
-    <h1>{editing?'Edit branch':'Create a new branch'}</h1>
-    <p>{editing?'Update the registered branch identity and location details.':'Create the branch identity that will be used by its operational systems.'}</p>
-    <form onSubmit={save} style={{maxWidth:760,margin:'28px auto',textAlign:'left',display:'grid',gridTemplateColumns:'1fr 1fr',gap:16}}>
+    <header className="admin-branch-form-heading">
+      <span className="admin-panel-eyebrow">{editing?'EDIT BRANCH':'CREATE NEW BRANCH'}</span>
+      <h1>{editing?'Edit branch':'Create a new branch'}</h1>
+      <p>{editing?'Update the registered branch identity and location details.':'Create the branch identity that will be used by its operational systems.'}</p>
+    </header>
+    <form className="admin-branch-form" onSubmit={save}>
       {[
-        ['code','Branch Code','e.g. SH-JU-001'],['name','Branch Name','e.g. Juhu'],['city','City','e.g. Mumbai'],['state','State','e.g. Maharashtra'],['country','Country','e.g. India'],['postal_code','Postal Code',''],['timezone','Timezone','e.g. Asia/Kolkata'],['address','Address','Full branch address']
-      ].map(([key,label,placeholder])=><label key={key} style={{display:'grid',gap:6}}><span>{label}</span><input value={form[key]||''} placeholder={placeholder} onChange={e=>setForm(x=>({...x,[key]:e.target.value}))} required={['code','name','city','country','timezone'].includes(key)} /></label>)}
-      <label style={{display:'grid',gap:6}}><span>Branch Type</span><select value={form.type} onChange={e=>setForm(x=>({...x,type:e.target.value}))}><option value="OUTLET">OUTLET</option><option value="FRANCHISE">FRANCHISE</option></select></label>
-      {formError&&<div role="alert" style={{gridColumn:'1 / -1'}}>{formError}</div>}
-      <div style={{gridColumn:'1 / -1',display:'flex',gap:12,justifyContent:'flex-end'}}><button type="button" className="admin-back-button" onClick={()=>setView('existing')}>Cancel</button><button type="submit" disabled={saving}>{saving?'Saving...':editing?'Save Changes':'Create Branch'}</button></div>
+        ['code','Branch Code','e.g. SH-JU-001'],['name','Branch Name','e.g. Juhu'],['city','City','e.g. Mumbai'],['state','State','e.g. Maharashtra'],['country','Country','e.g. India'],['postal_code','Postal Code','e.g. 590001'],['timezone','Timezone','e.g. Asia/Kolkata'],['address','Address','Full branch address']
+      ].map(([key,label,placeholder])=><label className="admin-branch-field" key={key}><span>{label}{['code','name','city','country','timezone'].includes(key)&&<i aria-hidden="true"> *</i>}</span><input value={form[key]||''} placeholder={placeholder} onChange={e=>setForm(x=>({...x,[key]:e.target.value}))} required={['code','name','city','country','timezone'].includes(key)} /></label>)}
+      <label className="admin-branch-field"><span>Branch Type</span><select value={form.type} onChange={e=>setForm(x=>({...x,type:e.target.value}))}><option value="OUTLET">OUTLET</option><option value="FRANCHISE">FRANCHISE</option></select></label>
+      {formError&&<div className="admin-branch-form-error" role="alert">{formError}</div>}
+      <div className="admin-branch-form-actions"><button type="button" className="admin-branch-cancel" onClick={()=>setView('existing')}>Cancel</button><button className="admin-branch-submit" type="submit" disabled={saving}>{saving?'Saving...':editing?'Save Changes':'Create Branch'}</button></div>
     </form>
   </section>;
 
