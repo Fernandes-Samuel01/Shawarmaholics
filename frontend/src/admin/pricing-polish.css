@@ -1,0 +1,467 @@
+/* Pricing UI polish only: scoped to Head Office and Branch Pricing screens. */
+.admin-pricing-page,
+.admin-branch-pricing {
+  max-width: 1180px;
+  color: var(--admin-ink, #2d2020);
+}
+.admin-pricing-page .admin-back-button,
+.admin-branch-pricing .admin-back-button {
+  margin-bottom: 28px;
+}
+.admin-pricing-header,
+.admin-branch-pricing .admin-branch-module-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 28px;
+  padding: 28px 30px;
+  border: 1px solid #eadfd2;
+  border-radius: 22px;
+  background: radial-gradient(circle at 100% 0%, #f3e3c9 0, transparent 42%), #fffdfa;
+  box-shadow: 0 14px 34px #35101d0d;
+}
+.admin-pricing-header h1,
+.admin-branch-pricing .admin-branch-module-header h1 {
+  margin: 10px 0 12px;
+  color: #79162e;
+  font-size: clamp(2.25rem, 4vw, 3.7rem);
+  line-height: 1.02;
+  letter-spacing: -.055em;
+}
+.admin-pricing-header p,
+.admin-branch-pricing .admin-branch-module-header p {
+  max-width: 690px;
+  margin: 0;
+  color: #887a70;
+  font-size: 14px;
+  line-height: 1.65;
+}
+.admin-pricing-page .admin-retry-button,
+.admin-branch-pricing .admin-retry-button {
+  flex: 0 0 auto;
+  min-height: 42px;
+  padding: 10px 16px;
+  border: 1px solid #d9b66d;
+  border-radius: 999px;
+  background: #fffdfa;
+  color: #79162e;
+  font-weight: 800;
+  box-shadow: 0 4px 12px #35101d08;
+  transition: transform .18s, box-shadow .18s, background .18s;
+}
+.admin-pricing-page .admin-retry-button:hover,
+.admin-branch-pricing .admin-retry-button:hover {
+  transform: translateY(-1px);
+  background: #fff7e9;
+  box-shadow: 0 7px 16px #35101d12;
+}
+.admin-pricing-section {
+  margin-top: 22px;
+  padding: 26px 28px;
+  border: 1px solid #eadfd2;
+  border-radius: 20px;
+  background: #fffdfa;
+  box-shadow: 0 10px 28px #35101d08;
+}
+.admin-pricing-section .admin-section-heading {
+  margin-bottom: 18px;
+}
+.admin-pricing-section .admin-section-heading h2,
+.admin-branch-pricing .admin-section-heading h2 {
+  margin: 8px 0 8px;
+  color: #79162e;
+  font-size: clamp(1.55rem, 2.5vw, 2rem);
+  line-height: 1.15;
+  letter-spacing: -.04em;
+}
+.admin-pricing-section .admin-section-heading p {
+  margin: 0;
+  color: #887a70;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-pricing-table-wrap {
+  overflow-x: auto;
+  margin-top: 18px;
+  border: 1px solid #eadfd2;
+  border-radius: 14px;
+  background: #fff;
+}
+.admin-pricing-table {
+  width: 100%;
+  min-width: 560px;
+  border-collapse: separate;
+  border-spacing: 0;
+}
+.admin-pricing-table th {
+  padding: 15px 16px;
+  background: #fbf3e8;
+  color: #806e60;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-align: left;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.admin-pricing-table td {
+  padding: 16px;
+  border-top: 1px solid #f0e8df;
+  color: #3a2a2a;
+  font-size: 13px;
+  vertical-align: middle;
+}
+.admin-pricing-table tbody tr {
+  transition: background .15s;
+}
+.admin-pricing-table tbody tr:hover {
+  background: #fffaf3;
+}
+.admin-pricing-table td strong {
+  color: #511020;
+  font-weight: 800;
+}
+.admin-pricing-table td svg {
+  display: inline-block;
+  vertical-align: -2px;
+  color: #9a6b2f;
+}
+.admin-pricing-table .admin-pricing-inline-input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 112px;
+  min-height: 42px;
+  padding: 9px 11px;
+  border: 1px solid #ddcfc0;
+  border-radius: 9px;
+  background: #fffdfa;
+  color: #2d2020;
+  font: inherit;
+  font-variant-numeric: tabular-nums;
+  transition: border-color .18s, box-shadow .18s;
+}
+.admin-pricing-table .admin-pricing-inline-input:focus {
+  border-color: #c49132;
+  outline: 0;
+  box-shadow: 0 0 0 3px #c4913224;
+}
+.admin-pricing-table .admin-pricing-submit {
+  min-height: 40px;
+  padding: 10px 17px;
+  border: 1px solid #79162e;
+  border-radius: 10px;
+  background: #79162e;
+  color: white;
+  font-size: 11px;
+  font-weight: 800;
+  box-shadow: 0 5px 12px #79162e20;
+  transition: transform .18s, background .18s, box-shadow .18s;
+}
+.admin-pricing-table .admin-pricing-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  background: #5f1025;
+  box-shadow: 0 8px 16px #79162e2a;
+}
+.admin-pricing-table .admin-pricing-submit:disabled {
+  cursor: not-allowed;
+  opacity: .42;
+  box-shadow: none;
+}
+.admin-pricing-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin: 0 0 18px;
+}
+.admin-pricing-summary > div {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 18px 20px;
+  border: 1px solid #eadfd2;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fffdfa, #fbf1e2);
+}
+.admin-pricing-summary small {
+  color: #887a70;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .04em;
+}
+.admin-pricing-summary strong {
+  color: #79162e;
+  font-size: 27px;
+  letter-spacing: -.04em;
+  font-variant-numeric: tabular-nums;
+}
+.admin-pricing-page .admin-pricing-count {
+  display: inline-grid;
+  min-width: 28px;
+  height: 28px;
+  place-items: center;
+  padding: 0 7px;
+  border-radius: 999px;
+  background: #f3e6d2;
+  color: #79162e;
+  font-size: 13px;
+  vertical-align: 4px;
+}
+.admin-pricing-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+}
+.admin-pricing-tabs button {
+  min-height: 38px;
+  padding: 9px 14px;
+  border: 1px solid #eadfd2;
+  border-radius: 999px;
+  background: #fff;
+  color: #806e60;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: border-color .18s, background .18s, color .18s;
+}
+.admin-pricing-tabs button:hover {
+  border-color: #c49132;
+}
+.admin-pricing-tabs button.active {
+  border-color: #79162e;
+  background: #79162e;
+  color: #fff;
+  box-shadow: 0 4px 10px #79162e20;
+}
+.admin-proposal-list {
+  display: grid;
+  gap: 13px;
+  margin-top: 18px;
+}
+.admin-proposal-card {
+  padding: 20px 22px;
+  border: 1px solid #eadfd2;
+  border-radius: 15px;
+  background: linear-gradient(135deg, #fffdfa 0%, #fff 100%);
+  box-shadow: 0 5px 15px #35101d06;
+  transition: border-color .18s, box-shadow .18s, transform .18s;
+}
+.admin-proposal-card:hover {
+  transform: translateY(-1px);
+  border-color: #ddc79f;
+  box-shadow: 0 9px 22px #35101d0b;
+}
+.admin-proposal-main {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+}
+.admin-proposal-main h3 {
+  margin: 7px 0 0;
+  color: #511020;
+  font-size: 17px;
+  line-height: 1.35;
+}
+.admin-proposal-main h3,
+.admin-proposal-main .admin-panel-eyebrow {
+  overflow-wrap: anywhere;
+}
+.admin-proposal-values {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 18px;
+}
+.admin-proposal-values > div {
+  display: grid;
+  gap: 6px;
+  padding: 13px 14px;
+  border: 1px solid #f0e8df;
+  border-radius: 11px;
+  background: #fffaf4;
+}
+.admin-proposal-values small {
+  color: #887a70;
+  font-size: 10px;
+  font-weight: 700;
+}
+.admin-proposal-values strong {
+  color: #511020;
+  font-size: 17px;
+  font-variant-numeric: tabular-nums;
+}
+.admin-proposal-status {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: fit-content;
+  padding: 7px 10px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 800;
+  white-space: nowrap;
+}
+.admin-proposal-status svg {
+  width: 15px;
+  height: 15px;
+}
+.admin-proposal-status.status-pending {
+  border-color: #f0d8a9;
+  background: #fff6df;
+  color: #94631a;
+}
+.admin-proposal-status.status-approved {
+  border-color: #cde4d1;
+  background: #eff8f0;
+  color: #357346;
+}
+.admin-proposal-status.status-rejected {
+  border-color: #e9cfca;
+  background: #fff0ed;
+  color: #a13d35;
+}
+.admin-proposal-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  padding-top: 16px;
+  border-top: 1px solid #f0e8df;
+}
+.admin-proposal-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 40px;
+  padding: 9px 14px;
+  border-radius: 9px;
+  font-size: 11px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform .18s, box-shadow .18s, background .18s;
+}
+.admin-proposal-actions button svg {
+  width: 15px;
+  height: 15px;
+}
+.admin-proposal-actions button:hover:not(:disabled) {
+  transform: translateY(-1px);
+}
+.admin-proposal-actions button:disabled {
+  cursor: wait;
+  opacity: .55;
+}
+.admin-proposal-actions .admin-approve-button {
+  border: 1px solid #357346;
+  background: #357346;
+  color: #fff;
+}
+.admin-proposal-actions .admin-reject-button,
+.admin-proposal-actions .admin-reject-form button {
+  border: 1px solid #a13d35;
+  background: #fff;
+  color: #a13d35;
+}
+.admin-reject-form {
+  display: flex;
+  flex: 1 1 280px;
+  gap: 8px;
+}
+.admin-reject-form input {
+  min-width: 0;
+  flex: 1;
+  padding: 10px 12px;
+  border: 1px solid #ddcfc0;
+  border-radius: 9px;
+  font: inherit;
+  font-size: 12px;
+}
+.admin-proposal-reason {
+  margin: 13px 0 0;
+  padding: 11px 13px;
+  border-radius: 9px;
+  background: #fff3ef;
+  color: #8b3d2d;
+  font-size: 12px;
+  line-height: 1.5;
+}
+.admin-pricing-page .admin-branch-feedback,
+.admin-branch-pricing .admin-branch-feedback {
+  padding: 17px 19px;
+  border: 1px solid #eadfd2;
+  border-radius: 13px;
+  background: #fffdfa;
+  color: #887a70;
+  font-size: 12px;
+  line-height: 1.6;
+}
+.admin-pricing-page .admin-branch-feedback-error,
+.admin-branch-pricing .admin-branch-feedback-error {
+  border-color: #e9cfca;
+  background: #fff0ed;
+  color: #a13d35;
+}
+.admin-branch-pricing .admin-pricing-history {
+  margin-top: 28px;
+}
+.admin-branch-pricing .admin-pricing-history .admin-section-heading {
+  margin-bottom: 17px;
+}
+.admin-branch-pricing .admin-pricing-history .admin-proposal-card {
+  padding: 17px 20px;
+}
+.admin-branch-pricing .admin-pricing-history .admin-proposal-main h3 {
+  margin-top: 5px;
+  font-size: 21px;
+}
+.admin-branch-pricing .admin-pricing-history .admin-proposal-main > div {
+  min-width: 0;
+}
+.admin-branch-pricing .admin-pricing-history .admin-proposal-main .admin-panel-eyebrow {
+  line-height: 1.5;
+}
+@media (max-width: 760px) {
+  .admin-pricing-header,
+  .admin-branch-pricing .admin-branch-module-header {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+  }
+  .admin-pricing-header .admin-retry-button,
+  .admin-branch-pricing .admin-branch-module-header .admin-retry-button {
+    align-self: flex-start;
+  }
+  .admin-pricing-section {
+    padding: 20px 16px;
+  }
+  .admin-pricing-summary {
+    grid-template-columns: 1fr;
+  }
+  .admin-proposal-values {
+    grid-template-columns: 1fr;
+  }
+  .admin-proposal-main {
+    flex-direction: column;
+  }
+  .admin-pricing-table {
+    min-width: 650px;
+  }
+  .admin-proposal-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .admin-proposal-actions > button,
+  .admin-reject-form {
+    width: 100%;
+  }
+  .admin-reject-form {
+    flex-direction: column;
+  }
+}
