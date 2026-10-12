@@ -9,15 +9,16 @@ const movementLabels={RECEIPT:'Receive stock',ADJUSTMENT_IN:'Adjustment in',ADJU
 const displayQty=v=>Number(v).toFixed(3).replace(/\.000$/,'');
 const locationKeyForBranch=id=>'BRANCH:'+id;
 
-export default function InventoryManagement({adminToken,onBack}){
+export default function InventoryManagement({adminToken,onBack,branchId=null,branchName=null}){
+ const branchScoped=branchId!=null;
  const [branches,setBranches]=useState([]),[items,setItems]=useState([]),[stock,setStock]=useState([]),[movements,setMovements]=useState([]);
  const [locationKey,setLocationKey]=useState('HEAD_OFFICE'),[itemId,setItemId]=useState(''),[search,setSearch]=useState(''),[lowStock,setLowStock]=useState(false);
  const [showItemForm,setShowItemForm]=useState(false),[showMovementForm,setShowMovementForm]=useState(false),[loading,setLoading]=useState(true),[error,setError]=useState(''),[message,setMessage]=useState('');
  const [itemForm,setItemForm]=useState({name:'',sku:'',unit:'kg',lowStockThreshold:'0'});
- const isHeadOffice=locationKey==='HEAD_OFFICE';
- const selectedBranchId=isHeadOffice?'':locationKey.replace('BRANCH:','');
+ const isHeadOffice=!branchScoped&&locationKey==='HEAD_OFFICE';
+ const selectedBranchId=branchScoped?String(branchId):(isHeadOffice?'':locationKey.replace('BRANCH:',''));
  const selectedBranch=branches.find(b=>String(b.id)===selectedBranchId);
- const locationLabel=isHeadOffice?'Head Office':(selectedBranch?.name||'Branch');
+ const locationLabel=isHeadOffice?'Head Office':(branchScoped?(branchName||'Branch'):(selectedBranch?.name||'Branch'));
 
  const load=async()=>{
   setLoading(true);setError('');
@@ -35,7 +36,7 @@ export default function InventoryManagement({adminToken,onBack}){
   }catch(e){setError(e.message)}finally{setLoading(false)}
  };
 
- useEffect(()=>{load()},[locationKey,lowStock]);
+ useEffect(()=>{load()},[locationKey,lowStock,branchId]);
 
  useEffect(()=>{
   const socket=io(API.replace('/api',''));
@@ -63,13 +64,13 @@ export default function InventoryManagement({adminToken,onBack}){
 
  return <section className="admin-inventory-page">
   <header className="admin-inventory-header">
-   <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft/> Back to Head Office</button>
+   <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft/> Back to {branchScoped?'Branch Dashboard':'Head Office'}</button>
    <div className="admin-inventory-heading"><span className="admin-panel-eyebrow">INVENTORY • {isHeadOffice?'HEAD OFFICE':'BRANCH'}</span><h1>{locationLabel} Inventory</h1><p>View and control stock only for the selected inventory location.</p></div>
    <div className="admin-inventory-actions"><button className="admin-secondary-action" type="button" onClick={load}><RefreshCw/> Refresh</button><button className="admin-primary-action" type="button" onClick={()=>setShowMovementForm(v=>!v)}><PackagePlus/> Stock movement</button><button className="admin-primary-action" type="button" onClick={()=>setShowItemForm(v=>!v)}><ClipboardList/> New item</button></div>
   </header>
 
   <div className="admin-inventory-location-bar">
-   <label><span>Inventory location</span><select value={locationKey} onChange={changeLocation}><option value="HEAD_OFFICE">Head Office</option>{branches.map(b=><option key={b.id} value={locationKeyForBranch(b.id)}>{b.name}</option>)}</select></label>
+   {!branchScoped&&<label><span>Inventory location</span><select value={locationKey} onChange={changeLocation}><option value="HEAD_OFFICE">Head Office</option>{branches.map(b=><option key={b.id} value={locationKeyForBranch(b.id)}>{b.name}</option>)}</select></label>}
    <div><strong>{locationLabel}</strong><small>{isHeadOffice?'Central stock held by Head Office':'Branch-specific stock and movements'}</small></div>
   </div>
 
