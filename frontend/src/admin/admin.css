@@ -4181,3 +4181,90 @@
         width: 100%;
     }
 }
+
+
+/* Branch menu availability */
+.admin-branch-availability {
+    max-width: 1120px;
+    padding-top: 8px
+}
+.admin-branch-availability .admin-orders-search {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 460px;
+    margin: 24px 0;
+    padding: 12px 14px;
+    border: 1px solid var(--admin-line);
+    border-radius: 12px;
+    background: var(--admin-paper)
+}
+.admin-branch-availability .admin-orders-search svg {
+    width: 18px;
+    color: var(--admin-muted);
+    flex: 0 0 auto
+}
+.admin-branch-availability .admin-orders-search input {
+    width: 100%;
+    min-width: 0;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: var(--admin-ink);
+    font: inherit
+}
+.admin-availability-list {
+    display: grid;
+    gap: 12px
+}
+.admin-availability-row {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 18px;
+    border: 1px solid var(--admin-line);
+    border-radius: 14px;
+    background: var(--admin-paper)
+}
+.admin-availability-row .admin-state-icon {
+    width: 46px;
+    height: 46px;
+    margin: 0;
+    flex: 0 0 auto
+}
+.admin-availability-copy {
+    display: grid;
+    flex: 1;
+    gap: 5px;
+    min-width: 0
+}
+.admin-availability-copy strong {
+    color: var(--admin-wine-light);
+    font-size: 16px
+}
+.admin-availability-copy small {
+    color: var(--admin-muted);
+    font-size: 12px
+}
+.admin-availability-copy .admin-branch-status {
+    width: fit-content;
+    margin-top: 2px
+}
+.admin-availability-row .admin-approve-button {
+    flex: 0 0 auto;
+    min-height: 40px;
+    padding: 10px 14px
+}
+@media (max-width: 640px) {
+    .admin-availability-row {
+        align-items: flex-start;
+        flex-wrap: wrap
+    }
+    .admin-availability-copy {
+        flex-basis: calc(100% - 70px)
+    }
+    .admin-availability-row .admin-approve-button {
+        width: 100%;
+        margin-left: 62px
+    }
+}
