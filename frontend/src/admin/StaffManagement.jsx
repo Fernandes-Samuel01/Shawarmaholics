@@ -53,7 +53,8 @@ function formatDate(value) {
   return date.toLocaleDateString('en-IN', { timeZone: 'Asia/Kolkata', day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-export default function StaffManagement({ adminToken, onBack }) {
+export default function StaffManagement({ adminToken, onBack, branchId = null, branchName = null }) {
+  const branchScoped = branchId != null;
   const [staff, setStaff] = useState([]);
   const [roles, setRoles] = useState(Object.keys(ROLE_LABELS));
   const [branches, setBranches] = useState([]);
@@ -79,8 +80,8 @@ export default function StaffManagement({ adminToken, onBack }) {
     setError('');
     try {
       const [staffData, branchData] = await Promise.all([
-        api('/admin/staff', adminToken),
-        fetch(API + '/branches').then(async response => {
+        api('/admin/staff' + (branchScoped ? '?branchId=' + encodeURIComponent(branchId) : ''), adminToken),
+        branchScoped ? Promise.resolve({ branches: [] }) : fetch(API + '/branches').then(async response => {
           const data = await response.json().catch(() => ({}));
           if (!response.ok) throw new Error(data.message || 'Unable to load branches');
           return data;
@@ -96,7 +97,7 @@ export default function StaffManagement({ adminToken, onBack }) {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [branchId, branchScoped]);
 
   const filtered = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -147,7 +148,7 @@ export default function StaffManagement({ adminToken, onBack }) {
         phone: form.phone,
         email: form.email.trim(),
         role: form.role,
-        branch_id: form.branch_id,
+        branch_id: branchScoped ? String(branchId) : form.branch_id,
         is_active: form.is_active
       };
       const data = editing
@@ -217,10 +218,10 @@ export default function StaffManagement({ adminToken, onBack }) {
   return <section className="admin-staff-page" aria-labelledby="staff-management-title">
     <div className="admin-staff-header">
       <div>
-        <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Head Office</button>
-        <span className="admin-panel-eyebrow">PEOPLE & OPERATIONS</span>
-        <h1 id="staff-management-title">Staff Management</h1>
-        <p>Manage staff roles, primary locations and active access from Head Office.</p>
+        <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to {branchScoped ? 'Branch Dashboard' : 'Head Office'}</button>
+        <span className="admin-panel-eyebrow">{branchScoped ? `${branchName || 'BRANCH'} · PEOPLE & OPERATIONS` : 'PEOPLE & OPERATIONS'}</span>
+        <h1 id="staff-management-title">{branchScoped ? `${branchName || 'Branch'} Staff` : 'Staff Management'}</h1>
+        <p>{branchScoped ? `Manage staff profiles and attendance for ${branchName || 'this branch'} only.` : 'Manage staff roles, primary locations and active access from Head Office.'}</p>
       </div>
       <button className="admin-primary-action" type="button" onClick={openCreate}><Plus /> Add Staff</button>
     </div>
@@ -242,9 +243,7 @@ export default function StaffManagement({ adminToken, onBack }) {
       <label>
         <span>LOCATION</span>
         <select value={locationFilter} onChange={event => setLocationFilter(event.target.value)}>
-          <option value="ALL">All locations</option>
-          <option value="HEAD_OFFICE">Head Office</option>
-          {branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}
+          {!branchScoped && <><option value="ALL">All locations</option><option value="HEAD_OFFICE">Head Office</option>{branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}</>}
         </select>
       </label>
       <label>
@@ -286,10 +285,10 @@ export default function StaffManagement({ adminToken, onBack }) {
             <label><span>PHONE *</span><input value={form.phone} onChange={event => setForm(current => ({ ...current, phone: event.target.value.replace(/\D/g, '').slice(0, 10) }))} inputMode="numeric" placeholder="10-digit mobile" required /></label>
             <label><span>EMAIL</span><input type="email" value={form.email} onChange={event => setForm(current => ({ ...current, email: event.target.value }))} placeholder="staff@example.com" /></label>
             <label><span>ROLE *</span><select value={form.role} onChange={event => setForm(current => ({ ...current, role: event.target.value }))}>{roles.map(role => <option value={role} key={role}>{roleLabel(role)}</option>)}</select></label>
-            <label><span>PRIMARY LOCATION *</span><select value={form.branch_id} onChange={event => setForm(current => ({ ...current, branch_id: event.target.value }))}><option value="HEAD_OFFICE">Head Office</option>{branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}</select></label>
+            {!branchScoped && <label><span>PRIMARY LOCATION *</span><select value={form.branch_id} onChange={event => setForm(current => ({ ...current, branch_id: event.target.value }))}><option value="HEAD_OFFICE">Head Office</option>{branches.map(branch => <option value={String(branch.id)} key={branch.id}>{branch.name}</option>)}</select></label>}
             {editing && <label className="admin-staff-checkbox"><span>STATUS</span><button type="button" onClick={() => setForm(current => ({ ...current, is_active: !current.is_active }))} className={form.is_active ? 'selected' : ''} aria-pressed={form.is_active}>{form.is_active ? 'ACTIVE' : 'INACTIVE'}</button></label>}
           </div>
-          <p className="admin-staff-form-note">A staff profile has one primary operating location. Branch-specific management screens and permissions will be connected in the later branch/manager phase.</p>
+          <p className="admin-staff-form-note">{branchScoped ? `Staff created here will belong to ${branchName || 'this branch'} only.` : 'A staff profile has one primary operating location.'}</p>
           <div className="admin-staff-modal-actions"><button type="button" className="admin-secondary-action" onClick={() => setFormOpen(false)}>Cancel</button><button type="submit" className="admin-primary-action" disabled={saving}>{saving ? 'Saving...' : editing ? 'Save Changes' : 'Create Staff'}</button></div>
         </form>
       </section>
