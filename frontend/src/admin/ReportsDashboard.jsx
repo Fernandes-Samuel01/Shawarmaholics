@@ -76,7 +76,8 @@ function csvEscape(value) {
   return /[",\n]/.test(text) ? '"' + text.replace(/"/g, '""') + '"' : text;
 }
 
-export default function ReportsDashboard({ adminToken, onBack }) {
+export default function ReportsDashboard({ adminToken, onBack, branchId = null, branchName = null }) {
+  const branchScoped = branchId != null;
   const [type, setType] = useState('sales');
   const [from, setFrom] = useState(monthStart);
   const [to, setTo] = useState(today);
@@ -93,6 +94,7 @@ export default function ReportsDashboard({ adminToken, onBack }) {
     try {
       if (from > to) throw new Error('Start date cannot be after end date');
       const params = new URLSearchParams({ type, from, to });
+      if (branchScoped) params.set('branchId', String(branchId));
       setData(await api('/admin/reports?' + params.toString(), adminToken));
     } catch (err) {
       setError(err.message || 'Unable to generate report');
@@ -153,9 +155,9 @@ export default function ReportsDashboard({ adminToken, onBack }) {
   return <section className="admin-reports-page" aria-labelledby="reports-title">
     <header className="admin-reports-header">
       <div>
-        <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to Head Office</button>
-        <span className="admin-panel-eyebrow">HEAD OFFICE REPORTS</span>
-        <h1 id="reports-title">Reports</h1>
+        <button className="admin-back-button" type="button" onClick={onBack}><ArrowLeft /> Back to {branchScoped ? 'Branch Dashboard' : 'Head Office'}</button>
+        <span className="admin-panel-eyebrow">{branchScoped ? `${branchName || 'BRANCH'} REPORTS` : 'HEAD OFFICE REPORTS'}</span>
+        <h1 id="reports-title">{branchScoped ? `${branchName || 'Branch'} Reports` : 'Reports'}</h1>
         <p>Generate structured operational and financial reports for the selected period. Head Office reports are consolidated across operating locations.</p>
       </div>
       <div className="admin-analytics-scope"><Store /> Head Office</div>
