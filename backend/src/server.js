@@ -232,6 +232,8 @@ app.patch('/api/admin/menu/items/:id', async (req, res) => {
     const { rows: [updated] } = await client.query(`UPDATE menu_items SET ${assignments} WHERE id=$${values.length + 1} RETURNING id`, [...values, itemId]);
     const { rows: [item] } = await client.query("SELECT mi.id,mi.name,mi.description,mi.category_id,mc.name category_name,mc.is_active category_is_active,mi.is_active,mi.price,mi.image_url,mi.available,mi.bestseller,mi.vegetarian,mi.preparation_minutes,mi.created_at,mc.position category_position FROM menu_items mi LEFT JOIN menu_categories mc ON mc.id=mi.category_id WHERE mi.id=$1", [updated.id]);
     await client.query('COMMIT');
+    // Keep every open kiosk synchronized with centrally managed menu and master-price changes.
+    io.emit('menu:master-updated', { scope: 'ALL', itemId: item.id, item });
     res.json({ message: 'Menu item updated successfully', item });
   } catch (e) { try { await client.query('ROLLBACK') } catch { }; res.status(500).json({ message: 'Unable to update master menu item' }) } finally { client.release() }
 });
