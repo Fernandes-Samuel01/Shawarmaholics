@@ -4,7 +4,7 @@ import { ArrowLeft, SlidersHorizontal, Plus, RefreshCw, Pencil, Trash2, ArrowUp,
 
 const API = import.meta.env.VITE_API_URL || 'http://localhost:4000/api';
 
-const request = async (path, options = {}) => { const response = await fetch(`${API}${path}`, { headers: { 'Content-Type': 'application/json', ...options.headers }, ...options }); const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.message || 'Request failed'); error.status = response.status; throw error } return data };
+const request = async (path, options = {}) => { const token = sessionStorage.getItem('shawarmaholics_admin_token') || ''; const response = await fetch(`${API}${path}`, { ...options, headers: { 'Content-Type': 'application/json', ...(token ? { Authorization: 'Bearer ' + token } : {}), ...(options.headers || {}) } }); const data = await response.json().catch(() => ({})); if (!response.ok) { const error = new Error(data.message || 'Request failed'); error.status = response.status; throw error } return data };
 
 const typeLabel = type => ({ SAUCE: 'Sauce', EXTRA: 'Extra', ADD_ON: 'Add-on' })[type] || type;
 
