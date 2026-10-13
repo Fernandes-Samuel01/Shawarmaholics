@@ -1,6 +1,6 @@
 const parseId = value => { const id = Number(value); return Number.isInteger(id) && id > 0 ? id : null; };
 
-module.exports = function registerBranchAvailabilityRoutes(app, { query, db, auth }) {
+module.exports = function registerBranchAvailabilityRoutes(app, { query, db, auth, io }) {
   app.get('/api/admin/branches/:branchId/menu-availability', auth(['admin']), async (req, res) => {
     const branchId = parseId(req.params.branchId);
     if (!branchId) return res.status(400).json({ message: 'Invalid branch ID' });
@@ -46,6 +46,8 @@ module.exports = function registerBranchAvailabilityRoutes(app, { query, db, aut
         RETURNING branch_id,menu_item_id,is_available,updated_at
       `, [branchId, itemId, available, req.user?.id || null]);
       await client.query('COMMIT');
+      const availabilityEvent = { branchId, itemId, itemName: item.name, is_available: updated.is_available, updated_at: updated.updated_at };
+      io?.emit('menu:availability-updated', availabilityEvent);
       res.json({ item: { id: itemId, name: item.name, is_available: updated.is_available, updated_at: updated.updated_at } });
     } catch (error) {
       try { await client.query('ROLLBACK'); } catch {}
