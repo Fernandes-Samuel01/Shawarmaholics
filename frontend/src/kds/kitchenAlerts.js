@@ -12,7 +12,7 @@ export function rememberAlert(ledger, key) {
   return true;
 }
 export function elapsedSeconds(order, now = Date.now()) {
-  const started = order.activated_at || order.preparation_started_at;
+  const started = order.activated_at || order.preparation_started_at || order.received_at || order.created_at;
   return started ? Math.max(0, Math.floor((now - new Date(started).getTime()) / 1000)) : 0;
 }
 export function targetSeconds(order) { return Number(order.target_prep_seconds) || 480; }
