@@ -58,8 +58,13 @@ function Kiosk() {
                     // Keep the current menu if a transient network error prevents synchronization.
                 });
         };
+        const refreshMenuForMasterUpdate = payload => {
+            if (payload?.scope !== 'ALL') return;
+            refreshMenuForAvailability({ branchId: kioskBranchId || null });
+        };
         socket.on('menu:availability-updated', refreshMenuForAvailability);
-        return () => { socket.off('settings:updated', handleSettingsUpdate); socket.off('menu:availability-updated', refreshMenuForAvailability); socket.disconnect(); };
+        socket.on('menu:master-updated', refreshMenuForMasterUpdate);
+        return () => { socket.off('settings:updated', handleSettingsUpdate); socket.off('menu:availability-updated', refreshMenuForAvailability); socket.off('menu:master-updated', refreshMenuForMasterUpdate); socket.disconnect(); };
     }, [kioskBranchId]);
 
     useEffect(() => {
