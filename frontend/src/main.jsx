@@ -35,7 +35,31 @@ function Kiosk() {
             if (matchesLocation(payload)) setSettings(payload.settings || {});
         };
         socket.on('settings:updated', handleSettingsUpdate);
-        return () => socket.disconnect();
+        const refreshMenuForAvailability = payload => {
+            const sameBranch = kioskBranchId
+                ? String(payload?.branchId || '') === String(kioskBranchId)
+                : payload?.branchId == null;
+            if (!sameBranch) return;
+            api('/kiosk/menu' + (kioskBranchId ? `?branchId=${encodeURIComponent(kioskBranchId)}` : ''))
+                .then(result => {
+                    const nextItems = (result.items || []).map(item => ({
+                        ...item,
+                        image_url: item.image_url,
+                        vegetarian: Boolean(item.vegetarian),
+                        customizationGroups: item.customization_groups || []
+                    }));
+                    setBranch(result.branch || null);
+                    setCategories(result.categories || []);
+                    setMenu(nextItems);
+                    setChosen(current => current && !nextItems.some(item => String(item.id) === String(current.id)) ? null : current);
+                    setCart(current => current.filter(cartItem => nextItems.some(item => String(item.id) === String(cartItem.id))));
+                })
+                .catch(() => {
+                    // Keep the current menu if a transient network error prevents synchronization.
+                });
+        };
+        socket.on('menu:availability-updated', refreshMenuForAvailability);
+        return () => { socket.off('settings:updated', handleSettingsUpdate); socket.off('menu:availability-updated', refreshMenuForAvailability); socket.disconnect(); };
     }, [kioskBranchId]);
 
     useEffect(() => {
