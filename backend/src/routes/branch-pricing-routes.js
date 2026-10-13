@@ -14,7 +14,7 @@ const branchScope = (req, branchId) => {
   return Number(req.user?.branch_id) === Number(branchId);
 };
 
-module.exports = function registerBranchPricingRoutes(app, { query, db, auth }) {
+module.exports = function registerBranchPricingRoutes(app, { query, db, auth, io }) {
   app.get('/api/branches/:branchId/pricing', auth(['admin','manager']), async (req, res) => {
     const branchId = parseBranchId(req.params.branchId);
     if (!branchId) return res.status(400).json({ message: 'Invalid branch ID' });
@@ -171,6 +171,8 @@ module.exports = function registerBranchPricingRoutes(app, { query, db, auth }) 
         [proposalId]
       );
       await client.query('COMMIT');
+      // Notify only kiosks for the affected branch to reload effective menu prices immediately.
+      if (decision === 'APPROVE') io?.emit('menu:availability-updated', { branchId: proposal.branch_id });
       res.json({ message: decision === 'APPROVE' ? 'Price proposal approved and activated' : 'Price proposal rejected', proposal: updated });
     } catch (e) {
       try { await client.query('ROLLBACK'); } catch {}
