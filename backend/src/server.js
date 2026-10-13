@@ -104,7 +104,7 @@ app.use('/api/staff-attendance', attendanceRateLimit);
 require('./routes/staff-attendance-routes')(app, { query, db });
 const { getSetting } = require('./services/settings-service');
 require('./routes/staff-routes')(app, { query, db, auth });
-require('./routes/branch-pricing-routes')(app, { query, db, auth });
+require('./routes/branch-pricing-routes')(app, { query, db, auth, io });
 require('./routes/inventory-routes')(app, { query, db, auth, io });
 require('./routes/analytics-routes')(app, { query, auth });
 require('./routes/report-routes')(app, { query, auth });
