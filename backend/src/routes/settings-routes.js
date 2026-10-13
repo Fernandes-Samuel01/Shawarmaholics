@@ -35,6 +35,19 @@ async function resolveScope(query, req) {
     if (scope.locationType === 'BRANCH') {
       const { rows } = await query('SELECT id,name,is_active FROM branches WHERE id=$1', [scope.branchId]);
       if (!rows[0]) return { error: { status: 404, message: 'Branch not found' } };
+
+      // Branches created after migration 017 do not automatically receive a
+      // copy of Head Office settings. Provision any missing branch-scoped rows
+      // before the settings UI reads or updates them.
+      await query(
+        `INSERT INTO system_settings
+          (setting_key, category, label, description, value, value_type, is_public, location_type, branch_id)
+         SELECT setting_key, category, label, description, value, value_type, is_public, 'BRANCH', $1
+         FROM system_settings
+         WHERE location_type = 'HEAD_OFFICE' AND branch_id IS NULL
+         ON CONFLICT DO NOTHING`,
+        [scope.branchId]
+      );
       return { scope, branch: rows[0] };
     }
     return { scope, branch: null };
